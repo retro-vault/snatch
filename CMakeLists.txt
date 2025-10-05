@@ -1,35 +1,32 @@
 cmake_minimum_required(VERSION 3.16)
+project(snatch LANGUAGES C CXX)
 
-# Project
-project(snatch LANGUAGES CXX)
+# Make absolutely sure C and C++ are enabled in this directory scope
+enable_language(C)
+enable_language(CXX)
 
-# Linux-only sanity guard
 if(NOT UNIX)
-  message(FATAL_ERROR "This project is intended for Linux/Unix (Ubuntu).")
+  message(FATAL_ERROR "Linux only build.")
 endif()
 
-# Prefer debug by default (good for F5 debugging)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
-# Use Makefiles (picked at configure time). NOTE: You must configure with:
-#   cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug
-# CMake cannot force the generator from within CMakeLists.
+# C and C++ standards
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
 
-# C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Put all runtime outputs (executables) in bin/
+# Put executables in bin/
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
-
-# Helpful for clang-tidy/IDE tooling
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Top-level include dir for your external plugin API header(s)
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-# Add sources
+add_subdirectory(lib)
 add_subdirectory(src)
