@@ -134,4 +134,4 @@ snatch supports modular exporters for different bitmap font formats (e.g. .fnt, 
 [license.url]:    https://github.com/retro-vault/snatch/blob/master/LICENSE
 [license.badge]:  https://img.shields.io/badge/license-GPL2-blue.svg
 
-[status.badge]:  https://img.shields.io/badge/status-development-red.svg
+[status.badge]:  https://img.shields.io/badge/status-unstable-red.svg
