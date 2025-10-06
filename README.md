@@ -1,3 +1,5 @@
+![status.badge] [![language.badge]][language.url] [![standard.badge]][standard.url] [![license.badge]][license.url]
+
 # snatch
 
 snatch is a small utility that extracts bitmap fonts from images or TTF files — a font “snatcher” for developers, pixel artists, and retro game enthusiasts.
@@ -27,3 +29,14 @@ snatch then cuts the image grid character by character, assigning ASCII codes in
 # Export plugins
 
 snatch supports modular exporters for different bitmap font formats (e.g. .fnt, .bdf, .bin, .json, or custom binary layouts). You can write your own plugin to match your engine’s needs.
+
+[language.url]:   https://en.wikipedia.org/wiki/C%2B%2B
+[language.badge]: https://img.shields.io/badge/language-C%2B%2B-blue.svg
+
+[standard.url]:   https://en.wikipedia.org/wiki/C%2B%2B20
+[standard.badge]: https://img.shields.io/badge/standard-C%2B%2B20-blue.svg
+
+[license.url]:    https://github.com/retro-vault/snatch/blob/master/LICENSE
+[license.badge]:  https://img.shields.io/badge/license-GPL2-blue.svg
+
+[status.badge]:  https://img.shields.io/badge/status-development-red.svg

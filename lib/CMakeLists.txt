@@ -43,3 +43,21 @@ target_include_directories(argparse PUBLIC ${argparse_SOURCE_DIR})
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(argparse PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+# GoogleTest library
+# Tip: pin a release tag for reproducibility, e.g. v1.15.2
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG v1.15.2
+)
+# gtest uses threads on Linux
+set(gtest_disable_pthreads OFF CACHE BOOL "" FORCE)
+# avoid overriding our compiler/linker flags on MSVC (harmless on Linux)
+set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(googletest)
+# Exposes targets: GTest::gtest, GTest::gtest_main, GTest::gmock, GTest::gmock_main
+
+# Build our own library in lib/snatch
+add_subdirectory(snatch)
