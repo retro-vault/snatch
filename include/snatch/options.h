@@ -31,8 +31,10 @@ struct snatch_options {
 
     bool inverse{false};
 
-    color_rgb fore_color{255,255,255};
-    color_rgb back_color{0,0,0};
+    color_rgb fore_color{0,0,0};            // black
+    color_rgb back_color{255,255,255};      // white
+    color_rgb transparent_color{255,0,255}; // default magenta (conventional)
+    bool has_transparent{false};
 
     int first_ascii{-1};
     int last_ascii{-1};

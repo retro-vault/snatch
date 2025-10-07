@@ -62,17 +62,19 @@ To run all tests you can invoke the test binary directly:
 | `--padding` | `-p` | *l,t,r,b* | Padding around each individual glyph (in pixels). Same format as margins. |
 | `--columns` | `-c` | *n* | Number of glyphs per row in the image. |
 | `--rows` | `-r` | *n* | Number of rows of glyphs in the image. |
-| `--source-format` | `-sf` | *ttf* \| *image* | Specifies the input type: either a TrueType font (`ttf`) or a bitmap image (`image`). |
+| `--source-format` | `-s` | *ttf* \| *image* | Specifies the input type: either a TrueType font (`ttf`) or a bitmap image (`image`). |
 | *(positional)* | — | *filename* | Input file to process (e.g. `font.png` or `font.ttf`). |
 | `--output` | `-o` | *file* | Output filename for the exported bitmap font. |
 | `--exporter` | `-e` | *name* | Name of the exporter plugin to use (e.g. `bin`, `asm`, `json`). |
-| `--exporter-parameters` | `-ep` | *string* | Optional quoted string of extra parameters to pass to the exporter plugin. |
+| `--exporter-parameters` | `-x` | *string* | Optional quoted string of extra parameters to pass to the exporter plugin. |
 | `--inverse` | `-i` | — | Inverts image colors before processing (useful for white-on-black images). |
-| `--fore-color` | `-fc` | *hexcolor* | Foreground (glyph) color, e.g. `#FFFFFF` or `A0B1C2`. |
-| `--back-color` | `-bc` | *hexcolor* | Background color, same format as above. |
-| `--first-ascii` | `-fa` | *n* | ASCII code of the first glyph in the grid (usually 32 for space). |
-| `--last-ascii` | `-la` | *n* | ASCII code of the last glyph in the grid (usually 126 for tilde). |
+| `--fore-color` | `-f` | *hexcolor* | Foreground (glyph) color, e.g. `#FFFFFF` or `A0B1C2`. |
+| `--back-color` | `-b` | *hexcolor* | Background color, same format as above. |
+| `--transparent-color` | `-t` | *hexcolor* | Transparent color, same format as above. |
+| `--first-ascii` | `-a` | *n* | ASCII code of the first glyph in the grid (usually 32 for space). |
+| `--last-ascii` | `-z` | *n* | ASCII code of the last glyph in the grid (usually 126 for tilde). |
 | `--help` | `-h` | — | Displays help and usage information. |
+
 
 ### Examples
 
@@ -84,19 +86,19 @@ Extract a bitmap font from a PNG font sheet:
   -m 2,2,2,2 \
   -p 1 \
   -c 16 -r 6 \
-  -fa 32 -la 126 \
-  -fc "#000000" -bc "#FFFFFF" \
+  -a 32 -z 126 \
+  -f "#000000" -b "#FFFFFF" \
   -e bin -o output/font.bin \
   assets/fontsheet.png
 ```
 Extract from a TTF font and export to assembly source:
 
-```
+```bash
 ./bin/snatch \
   --source-format ttf \
   --exporter asm \
   --exporter-parameters "org=0x8000,label=myfont" \
-  -o build/font.asm \
+  --output build/font.asm \
   fonts/Retro.ttf
 ```
 Extract a bitmap font from a TTF file:
@@ -107,7 +109,7 @@ Extract a bitmap font from a TTF file:
   --exporter png \
   --first-ascii 32 \
   --last-ascii 127 \
-  -o out/font.png \
+  -output out/font.png \
   MyFont.ttf
 ```
 

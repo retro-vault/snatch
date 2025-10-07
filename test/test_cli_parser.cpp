@@ -24,17 +24,17 @@ TEST(cli_parser, basic_ttf_ok) {
 
     argv_builder b;
     b.arg("snatch")
-     .arg("--source-format").arg("ttf")
+     .arg("-s").arg("ttf")
      .arg("-o").arg("bin/out.bin")
-     .arg("--exporter").arg("txt")
-     .arg("--margins").arg("1,2,3,4")
-     .arg("--padding").arg("5,6,7,8")
-     .arg("--columns").arg("16")
-     .arg("--rows").arg("6")
-     .arg("--fore-color").arg("#A0B1C2")
-     .arg("--back-color").arg("001122")
-     .arg("--first-ascii").arg("32")
-     .arg("--last-ascii").arg("126")
+     .arg("-e").arg("txt")
+     .arg("-m").arg("1,2,3,4")
+     .arg("-p").arg("5,6,7,8")
+     .arg("-c").arg("16")
+     .arg("-r").arg("6")
+     .arg("-f").arg("#A0B1C2")
+     .arg("-b").arg("001122")
+     .arg("-a").arg("32")
+     .arg("-z").arg("126")
      .arg("MyFont.ttf");
 
     auto [argc, argv] = b.finalize();
@@ -71,17 +71,17 @@ TEST(cli_parser, basic_ttf_ok) {
     EXPECT_EQ(opt.back_color.b, 0x22);
 }
 
-TEST(cli_parser, inverse_and_aliases) {
+TEST(cli_parser, inverse_and_short_flags) {
     cli_parser p;
     snatch_options opt;
 
     argv_builder b;
     b.arg("snatch")
      .arg("-i")
-     .arg("-s").arg("image")              // alias for --source-format
+     .arg("-s").arg("image")
      .arg("-c").arg("8")
      .arg("-r").arg("4")
-     .arg("-p").arg("note=hello world")   // alias for --exporter-parameters
+     .arg("-x").arg("note=hello world") // exporter parameters
      .arg("-e").arg("txt")
      .arg("-o").arg("out.txt")
      .arg("sprite.png");
@@ -100,13 +100,31 @@ TEST(cli_parser, inverse_and_aliases) {
     EXPECT_EQ(opt.input_file.string(), "sprite.png");
 }
 
+TEST(cli_parser, transparent_color_sets_flag) {
+    cli_parser p;
+    snatch_options opt;
+
+    argv_builder b;
+    b.arg("snatch")
+     .arg("-t").arg("#FF00FF")
+     .arg("f.ttf");
+
+    auto [argc, argv] = b.finalize();
+    int rc = p.parse(argc, argv, opt);
+    ASSERT_EQ(rc, 0);
+    EXPECT_TRUE(opt.has_transparent);
+    EXPECT_EQ(opt.transparent_color.r, 0xFF);
+    EXPECT_EQ(opt.transparent_color.g, 0x00);
+    EXPECT_EQ(opt.transparent_color.b, 0xFF);
+}
+
 TEST(cli_parser, invalid_margins_returns_error) {
     cli_parser p;
     snatch_options opt;
 
     argv_builder b;
     b.arg("snatch")
-     .arg("--margins").arg("1,2,XYZ")
+     .arg("-m").arg("1,2,XYZ")
      .arg("f.ttf");
 
     auto [argc, argv] = b.finalize();
@@ -120,7 +138,7 @@ TEST(cli_parser, invalid_colors_returns_error) {
 
     argv_builder b;
     b.arg("snatch")
-     .arg("--fore-color").arg("#12")  // too short
+     .arg("-f").arg("#12")  // too short
      .arg("f.ttf");
 
     auto [argc, argv] = b.finalize();
@@ -134,8 +152,8 @@ TEST(cli_parser, ascii_range_order_invalid) {
 
     argv_builder b;
     b.arg("snatch")
-     .arg("--first-ascii").arg("100")
-     .arg("--last-ascii").arg("60")
+     .arg("-a").arg("100")
+     .arg("-z").arg("60")
      .arg("f.ttf");
 
     auto [argc, argv] = b.finalize();
@@ -149,7 +167,7 @@ TEST(cli_parser, missing_input_file_is_error) {
 
     argv_builder b;
     b.arg("snatch")
-     .arg("--source-format").arg("ttf");
+     .arg("-s").arg("ttf");
 
     auto [argc, argv] = b.finalize();
     int rc = p.parse(argc, argv, opt);

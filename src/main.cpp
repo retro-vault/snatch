@@ -25,6 +25,13 @@ static void print_options(const snatch_options& opt) {
               << (opt.back_color.r<16?"0":"") << opt.back_color.r
               << (opt.back_color.g<16?"0":"") << opt.back_color.g
               << (opt.back_color.b<16?"0":"") << opt.back_color.b << std::dec << "\n";
+    if (opt.has_transparent) {
+        std::cout << "  transparent color: #" << std::hex
+                << (opt.transparent_color.r<16?"0":"") << opt.transparent_color.r
+                << (opt.transparent_color.g<16?"0":"") << opt.transparent_color.g
+                << (opt.transparent_color.b<16?"0":"") << opt.transparent_color.b
+                << std::dec << "\n";
+    }
     std::cout << "  ascii: first=" << opt.first_ascii << " last=" << opt.last_ascii << "\n";
 }
 

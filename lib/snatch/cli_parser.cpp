@@ -76,6 +76,7 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     const char* out_file_str = nullptr;
     const char* fore_str = nullptr;
     const char* back_str = nullptr;
+    const char* transp_str = nullptr;
 
     int columns = 0;
     int rows = 0;
@@ -94,41 +95,34 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     // Use macros to avoid missing-field warnings in C++
     struct argparse_option options[] = {
         // margins & padding
-        OPT_STRING('m', "margins", &margins_str,
-                "image margins: left,top,right,bottom (up to 4)"),
-        OPT_STRING(  0, "padding", &padding_str,
-                "glyph padding: left,top,right,bottom (up to 4)"),
+        OPT_STRING('m', "margins",  &margins_str,  "image margins: left,top,right,bottom (up to 4)"),
+        OPT_STRING('p', "padding",  &padding_str,  "glyph padding: left,top,right,bottom (up to 4)"),
 
         // grid
-        OPT_INTEGER('c', "columns", &columns, "number of columns"),
-        OPT_INTEGER('r', "rows",    &rows,    "number of rows"),
+        OPT_INTEGER('c', "columns", &columns,      "number of columns"),
+        OPT_INTEGER('r', "rows",    &rows,         "number of rows"),
 
-        // source format
-        OPT_STRING(  0, "source-format", &src_fmt_str, "source format: image|ttf"),
-        OPT_STRING('s', "sf",            &src_fmt_str, "alias for --source-format"),
+        // source format (ttf | image)
+        OPT_STRING('s', "source-format", &src_fmt_str, "source format: image|ttf"),
 
         // output file
-        OPT_STRING('o', "output",  &out_file_str, "output filename"),
+        OPT_STRING('o', "output",  &out_file_str,  "output filename"),
 
         // exporter and parameters
-        OPT_STRING('e', "exporter",            &exporter_str,         "exporter name (plugin/tool)"),
-        OPT_STRING(  0, "exporter-parameters", &exporter_params_str,  "parameters for exporter (quoted ok)"),
-        OPT_STRING('p', "ep",                  &exporter_params_str,  "alias for --exporter-parameters"),
+        OPT_STRING('e', "exporter",             &exporter_str,        "exporter name (plugin/tool)"),
+        OPT_STRING('x', "exporter-parameters",  &exporter_params_str, "parameters for exporter (quoted ok)"),
 
         // inverse
         OPT_BOOLEAN('i', "inverse", &inverse_flag, "invert image"),
 
         // colors
-        OPT_STRING(  0, "fore-color", &fore_str, "foreground color #RRGGBB"),
-        OPT_STRING(  0, "fc",         &fore_str, "alias for --fore-color"),
-        OPT_STRING(  0, "back-color", &back_str, "background color #RRGGBB"),
-        OPT_STRING(  0, "bc",         &back_str, "alias for --back-color"),
+        OPT_STRING('f', "fore-color",         &fore_str,        "foreground color #RRGGBB"),
+        OPT_STRING('b', "back-color",         &back_str,        "background color #RRGGBB"),
+        OPT_STRING('t', "transparent-color",  &transp_str, "transparent color #RRGGBB"),
 
         // ascii range
-        OPT_INTEGER( 0, "first-ascii", &first_ascii, "first ascii code"),
-        OPT_INTEGER( 0, "fa",          &first_ascii, "alias for --first-ascii"),
-        OPT_INTEGER( 0, "last-ascii",  &last_ascii,  "last ascii code"),
-        OPT_INTEGER( 0, "la",          &last_ascii,  "alias for --last-ascii"),
+        OPT_INTEGER('a', "first-ascii", &first_ascii, "first ascii code"),
+        OPT_INTEGER('z', "last-ascii",  &last_ascii,  "last ascii code"),
 
         OPT_HELP(),
         OPT_END()
@@ -175,6 +169,13 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
         std::cerr << "error: invalid --back-color; expected #RRGGBB\n";
         return 2;
     }
+    if (transp_str) {
+    if (!parse_hex_color(transp_str, out.transparent_color)) {
+        std::cerr << "error: invalid --transparent-color; expected #RRGGBB\n";
+        return 2;
+    }
+    out.has_transparent = true;
+}
 
     out.first_ascii = first_ascii;
     out.last_ascii  = last_ascii;
