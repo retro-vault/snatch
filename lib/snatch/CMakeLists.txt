@@ -19,9 +19,17 @@ target_include_directories(libsnatch
 target_compile_features(libsnatch PUBLIC cxx_std_20)
 
 # link deps the lib uses
+if(TARGET freetype)
+  set(SNATCH_FREETYPE_TARGET freetype)
+elseif(TARGET Freetype::Freetype)
+  set(SNATCH_FREETYPE_TARGET Freetype::Freetype)
+else()
+  message(FATAL_ERROR "FreeType target not found after FetchContent_MakeAvailable(freetype)")
+endif()
+
 target_link_libraries(libsnatch
   PUBLIC argparse
-  PRIVATE stb_image stb_truetype
+  PRIVATE stb_image ${SNATCH_FREETYPE_TARGET}
 )
 
 # plugin manager (if compiled) needs dl on Linux
@@ -33,3 +41,7 @@ endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(libsnatch PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+install(TARGETS libsnatch
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)

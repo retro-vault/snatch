@@ -55,3 +55,20 @@ void plugin_manager::load_from_dir(const fs::path& dir) {
         plugins_.push_back(lp);
     }
 }
+
+void plugin_manager::load_from_dirs_in_order(const std::vector<fs::path>& dirs) {
+    for (const auto& dir : dirs) {
+        load_from_dir(dir);
+        if (!plugins_.empty()) {
+            return;
+        }
+    }
+}
+
+const loaded_plugin* plugin_manager::find_by_name(const std::string& name) const {
+    for (const auto& p : plugins_) {
+        if (!p.info || !p.info->name) continue;
+        if (name == p.info->name) return &p;
+    }
+    return nullptr;
+}

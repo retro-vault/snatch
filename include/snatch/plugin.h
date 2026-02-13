@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 // ABI versioning
-#define SNATCH_PLUGIN_ABI_VERSION 1
+#define SNATCH_PLUGIN_ABI_VERSION 2
 
 // symbol visibility (gcc/clang)
 #if defined(__GNUC__) || defined(__clang__)
@@ -16,10 +16,30 @@ extern "C" {
 #endif
 
 // minimal font description for now; you can extend later
+typedef struct snatch_glyph_bitmap {
+    int codepoint;              // Unicode codepoint / ASCII value
+    int width;                  // glyph bitmap width in pixels
+    int height;                 // glyph bitmap height in pixels
+    int bearing_x;              // horizontal bearing from pen position
+    int bearing_y;              // vertical bearing from baseline
+    int advance_x;              // horizontal advance in pixels
+    int stride_bytes;           // bytes per row in bitmap (1bpp packed)
+    const unsigned char* data;  // packed bits (MSB first per byte)
+} snatch_glyph_bitmap;
+
+typedef struct snatch_bitmap_font {
+    int glyph_count;
+    const snatch_glyph_bitmap* glyphs;
+} snatch_bitmap_font;
+
 typedef struct snatch_font {
     const char* name;         // e.g., "MyFont Regular"
     int glyph_width;          // px
     int glyph_height;         // px
+    int first_codepoint;      // usually first ASCII codepoint
+    int last_codepoint;       // usually last ASCII codepoint
+    int pixel_size;           // ppem used during rasterization
+    const snatch_bitmap_font* bitmap_font; // optional rasterized glyph data
     const void* user_data;    // optional: points to raw glyph data, etc.
 } snatch_font;
 

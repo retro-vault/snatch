@@ -2,6 +2,8 @@
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
 
 
 
@@ -26,10 +28,26 @@ bool cli_parser::parse_edge4_csv(const char* s, edge4& out) {
     }
     while (*p == ' ') ++p;
     if (*p != '\0') return false;
+    // Expand missing values by repeating the last provided value.
+    // Examples:
+    //   "4"     -> 4,4,4,4
+    //   "4,8"   -> 4,8,8,8
+    //   "4,8,2" -> 4,8,2,2
+    if (count == 1) {
+        vals[1] = vals[0];
+        vals[2] = vals[0];
+        vals[3] = vals[0];
+    } else if (count == 2) {
+        vals[2] = vals[1];
+        vals[3] = vals[1];
+    } else if (count == 3) {
+        vals[3] = vals[2];
+    }
+
     out.left = vals[0];
-    if (count > 1) out.top = vals[1];
-    if (count > 2) out.right = vals[2];
-    if (count > 3) out.bottom = vals[3];
+    out.top = vals[1];
+    out.right = vals[2];
+    out.bottom = vals[3];
     return true;
 }
 
@@ -67,6 +85,22 @@ source_format cli_parser::parse_source_format(const char* s) {
 // ---- parse ---------------------------------------------------------------
 
 int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
+    // Back-compat aliases used in README examples.
+    std::vector<std::string> normalized_storage;
+    std::vector<const char*> normalized_argv;
+    normalized_storage.reserve(static_cast<size_t>(argc));
+    normalized_argv.reserve(static_cast<size_t>(argc));
+
+    for (int i = 0; i < argc; ++i) {
+        std::string arg = argv[i] ? argv[i] : "";
+        if (arg == "-sf") arg = "--source-format";
+        if (arg == "-output") arg = "--output";
+        normalized_storage.push_back(std::move(arg));
+    }
+    for (auto& s : normalized_storage) {
+        normalized_argv.push_back(s.c_str());
+    }
+
     // argparse target variables
     const char* margins_str = nullptr;
     const char* padding_str = nullptr;
@@ -74,6 +108,7 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     const char* exporter_str = nullptr;
     const char* exporter_params_str = nullptr;
     const char* out_file_str = nullptr;
+    const char* plugin_dir_str = nullptr;
     const char* fore_str = nullptr;
     const char* back_str = nullptr;
     const char* transp_str = nullptr;
@@ -83,6 +118,7 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     int inverse_flag = 0;
     int first_ascii = -1;
     int last_ascii = -1;
+    int font_size = 0;
 
     const char* const usage[] = {
         "snatch [options] <input_file>",
@@ -107,6 +143,7 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
 
         // output file
         OPT_STRING('o', "output",  &out_file_str,  "output filename"),
+        OPT_STRING('d', "plugin-dir", &plugin_dir_str, "plugin directory override"),
 
         // exporter and parameters
         OPT_STRING('e', "exporter",             &exporter_str,        "exporter name (plugin/tool)"),
@@ -123,6 +160,7 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
         // ascii range
         OPT_INTEGER('a', "first-ascii", &first_ascii, "first ascii code"),
         OPT_INTEGER('z', "last-ascii",  &last_ascii,  "last ascii code"),
+        OPT_INTEGER('u', "font-size", &font_size, "font pixel size (ppem); auto if omitted"),
 
         OPT_HELP(),
         OPT_END()
@@ -134,7 +172,7 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     argparse_init(&ap, options, usage, 0);
     argparse_describe(&ap, "snatch font processor",
                            "example: snatch --source-format ttf -o out.bin MyFont.ttf");
-    int nargs = argparse_parse(&ap, argc, argv);
+    int nargs = argparse_parse(&ap, argc, normalized_argv.data());
 
     // positional input file required
     if (nargs < 1) {
@@ -143,11 +181,12 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     }
 
     // fill output struct
-    out.input_file = std::filesystem::path(argv[argc - nargs]);
+    out.input_file = std::filesystem::path(normalized_argv[argc - nargs]);
     out.columns = columns;
     out.rows = rows;
     out.inverse = (inverse_flag != 0);
     if (out_file_str) out.output_file = out_file_str;
+    if (plugin_dir_str) out.plugin_dir = plugin_dir_str;
     if (exporter_str) out.exporter = exporter_str;
     if (exporter_params_str) out.exporter_parameters = exporter_params_str;
     out.src_fmt = parse_source_format(src_fmt_str);
@@ -179,6 +218,7 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
 
     out.first_ascii = first_ascii;
     out.last_ascii  = last_ascii;
+    out.font_size = font_size;
     if ((out.first_ascii >= 0 && out.last_ascii >= 0) && out.first_ascii > out.last_ascii) {
         std::cerr << "error: --first-ascii must be <= --last-ascii\n";
         return 2;

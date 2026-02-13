@@ -1,5 +1,20 @@
 include(FetchContent)
 
+# FreeType library (static)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+  freetype
+  GIT_REPOSITORY https://github.com/freetype/freetype.git
+  GIT_TAG VER-2-13-3
+)
+FetchContent_MakeAvailable(freetype)
+
 # STB library
 FetchContent_Declare(
   stb
@@ -16,18 +31,20 @@ file(WRITE ${stb_image_impl}
 "#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>\n")
 
-set(stb_truetype_impl ${CMAKE_CURRENT_BINARY_DIR}/stb_truetype_impl.c)
-file(WRITE ${stb_truetype_impl}
-"#define STB_TRUETYPE_IMPLEMENTATION
-#include <stb_truetype.h>\n")
-
-set_source_files_properties(${stb_image_impl} ${stb_truetype_impl} PROPERTIES LANGUAGE C)
+set_source_files_properties(${stb_image_impl} PROPERTIES LANGUAGE C)
 
 add_library(stb_image STATIC ${stb_image_impl})
 target_include_directories(stb_image PUBLIC ${stb_SOURCE_DIR})
 
-add_library(stb_truetype STATIC ${stb_truetype_impl})
-target_include_directories(stb_truetype PUBLIC ${stb_SOURCE_DIR})
+set(stb_image_write_impl ${CMAKE_CURRENT_BINARY_DIR}/stb_image_write_impl.c)
+file(WRITE ${stb_image_write_impl}
+"#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>\n")
+set_source_files_properties(${stb_image_write_impl} PROPERTIES LANGUAGE C)
+
+add_library(stb_image_write STATIC ${stb_image_write_impl})
+target_include_directories(stb_image_write PUBLIC ${stb_SOURCE_DIR})
+set_target_properties(stb_image_write PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # argparse library
 FetchContent_Declare(

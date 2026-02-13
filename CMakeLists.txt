@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(snatch LANGUAGES C CXX)
+include(GNUInstallDirs)
 
 # make sure both languages are initialized before subdirs
 enable_language(C)
@@ -26,8 +27,15 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(SNATCH_PLUGIN_INSTALL_DIR
+    "${CMAKE_INSTALL_LIBDIR}/snatch/plugins"
+    CACHE STRING "Install directory for snatch plugins (relative to prefix)")
+
 # public headers
 include_directories("${PROJECT_SOURCE_DIR}/include")
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
 # enable CTest / testing
 include(CTest)       # defines BUILD_TESTING option and enable_testing()
@@ -35,6 +43,7 @@ include(CTest)       # defines BUILD_TESTING option and enable_testing()
 # subdirs
 add_subdirectory(lib)
 add_subdirectory(src)
+add_subdirectory(plugins)
 
 # add tests dir only if tests enabled
 if(BUILD_TESTING)

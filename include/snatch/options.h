@@ -25,6 +25,7 @@ struct snatch_options {
     source_format src_fmt{source_format::unknown};
     std::filesystem::path input_file;
     std::filesystem::path output_file;
+    std::filesystem::path plugin_dir;
 
     std::string exporter;
     std::string exporter_parameters;
@@ -38,4 +39,5 @@ struct snatch_options {
 
     int first_ascii{-1};
     int last_ascii{-1};
+    int font_size{0}; // ppem. <=0 means auto-select.
 };

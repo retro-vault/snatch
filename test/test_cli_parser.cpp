@@ -100,6 +100,81 @@ TEST(cli_parser, inverse_and_short_flags) {
     EXPECT_EQ(opt.input_file.string(), "sprite.png");
 }
 
+TEST(cli_parser, edge4_missing_values_repeat_last) {
+    cli_parser p;
+    snatch_options opt;
+
+    argv_builder b;
+    b.arg("snatch")
+     .arg("-m").arg("4,8")
+     .arg("-p").arg("1")
+     .arg("f.ttf");
+
+    auto [argc, argv] = b.finalize();
+    int rc = p.parse(argc, argv, opt);
+    ASSERT_EQ(rc, 0);
+
+    EXPECT_EQ(opt.margins.left, 4);
+    EXPECT_EQ(opt.margins.top, 8);
+    EXPECT_EQ(opt.margins.right, 8);
+    EXPECT_EQ(opt.margins.bottom, 8);
+
+    EXPECT_EQ(opt.padding.left, 1);
+    EXPECT_EQ(opt.padding.top, 1);
+    EXPECT_EQ(opt.padding.right, 1);
+    EXPECT_EQ(opt.padding.bottom, 1);
+}
+
+TEST(cli_parser, readme_alias_flags_parse) {
+    cli_parser p;
+    snatch_options opt;
+
+    argv_builder b;
+    b.arg("snatch")
+     .arg("-sf").arg("image")
+     .arg("-output").arg("out/font.bin")
+     .arg("sprite.png");
+
+    auto [argc, argv] = b.finalize();
+    int rc = p.parse(argc, argv, opt);
+    ASSERT_EQ(rc, 0);
+
+    EXPECT_EQ(opt.src_fmt, source_format::image);
+    EXPECT_EQ(opt.output_file.string(), "out/font.bin");
+    EXPECT_EQ(opt.input_file.string(), "sprite.png");
+}
+
+TEST(cli_parser, plugin_dir_override_parses) {
+    cli_parser p;
+    snatch_options opt;
+
+    argv_builder b;
+    b.arg("snatch")
+     .arg("--plugin-dir").arg("/tmp/snatch-plugins")
+     .arg("sprite.png");
+
+    auto [argc, argv] = b.finalize();
+    int rc = p.parse(argc, argv, opt);
+    ASSERT_EQ(rc, 0);
+
+    EXPECT_EQ(opt.plugin_dir.string(), "/tmp/snatch-plugins");
+}
+
+TEST(cli_parser, font_size_parses) {
+    cli_parser p;
+    snatch_options opt;
+
+    argv_builder b;
+    b.arg("snatch")
+     .arg("--font-size").arg("16")
+     .arg("font.ttf");
+
+    auto [argc, argv] = b.finalize();
+    int rc = p.parse(argc, argv, opt);
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(opt.font_size, 16);
+}
+
 TEST(cli_parser, transparent_color_sets_flag) {
     cli_parser p;
     snatch_options opt;
