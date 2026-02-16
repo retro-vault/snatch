@@ -1,7 +1,5 @@
 #include "snatch/cli_parser.h"
 #include <iostream>
-#include <cstdlib>
-#include <cstring>
 #include <string>
 #include <vector>
 
@@ -11,81 +9,9 @@ extern "C" {
 #include <argparse.h>
 }
 
-// ---- helpers -------------------------------------------------------------
-
-bool cli_parser::parse_edge4_csv(const char* s, edge4& out) {
-    if (!s) return false;
-    int vals[4] = {0,0,0,0};
-    int count = 0;
-    const char* p = s;
-    while (*p && count < 4) {
-        char* end = nullptr;
-        long v = std::strtol(p, &end, 10);
-        if (end == p || v < 0 || v > 1000000) return false;
-        vals[count++] = static_cast<int>(v);
-        if (*end == ',') { p = end + 1; }
-        else { p = end; break; }
-    }
-    while (*p == ' ') ++p;
-    if (*p != '\0') return false;
-    // Expand missing values by repeating the last provided value.
-    // Examples:
-    //   "4"     -> 4,4,4,4
-    //   "4,8"   -> 4,8,8,8
-    //   "4,8,2" -> 4,8,2,2
-    if (count == 1) {
-        vals[1] = vals[0];
-        vals[2] = vals[0];
-        vals[3] = vals[0];
-    } else if (count == 2) {
-        vals[2] = vals[1];
-        vals[3] = vals[1];
-    } else if (count == 3) {
-        vals[3] = vals[2];
-    }
-
-    out.left = vals[0];
-    out.top = vals[1];
-    out.right = vals[2];
-    out.bottom = vals[3];
-    return true;
-}
-
-static bool parse_hex_component(const char* p, int& out) {
-    char* end = nullptr;
-    long v = std::strtol(p, &end, 16);
-    if (end == p || v < 0 || v > 255) return false;
-    out = static_cast<int>(v);
-    return true;
-}
-
-bool cli_parser::parse_hex_color(const char* s, color_rgb& out) {
-    if (!s) return false;
-    if (s[0] == '#') ++s;
-    size_t len = std::strlen(s);
-    if (len != 6) return false;
-    int r=0,g=0,b=0;
-    char rs[3] = { s[0], s[1], 0 };
-    char gs[3] = { s[2], s[3], 0 };
-    char bs[3] = { s[4], s[5], 0 };
-    if (!parse_hex_component(rs, r)) return false;
-    if (!parse_hex_component(gs, g)) return false;
-    if (!parse_hex_component(bs, b)) return false;
-    out.r = r; out.g = g; out.b = b;
-    return true;
-}
-
-source_format cli_parser::parse_source_format(const char* s) {
-    if (!s) return source_format::unknown;
-    if (std::strcmp(s, "image") == 0) return source_format::image;
-    if (std::strcmp(s, "ttf")   == 0) return source_format::ttf;
-    return source_format::unknown;
-}
-
 // ---- parse ---------------------------------------------------------------
 
 int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
-    // Back-compat aliases used in README examples.
     std::vector<std::string> normalized_storage;
     std::vector<const char*> normalized_argv;
     normalized_storage.reserve(static_cast<size_t>(argc));
@@ -93,8 +19,6 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
 
     for (int i = 0; i < argc; ++i) {
         std::string arg = argv[i] ? argv[i] : "";
-        if (arg == "-sf") arg = "--source-format";
-        if (arg == "-output") arg = "--output";
         normalized_storage.push_back(std::move(arg));
     }
     for (auto& s : normalized_storage) {
@@ -102,26 +26,15 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     }
 
     // argparse target variables
-    const char* margins_str = nullptr;
-    const char* padding_str = nullptr;
-    const char* src_fmt_str = nullptr;
+    const char* extractor_str = nullptr;
+    const char* extractor_params_str = nullptr;
     const char* exporter_str = nullptr;
     const char* exporter_params_str = nullptr;
-    const char* out_file_str = nullptr;
+    const char* transformer_str = nullptr;
+    const char* transformer_params_str = nullptr;
     const char* plugin_dir_str = nullptr;
-    const char* fore_str = nullptr;
-    const char* back_str = nullptr;
-    const char* transp_str = nullptr;
-
-    int columns = 0;
-    int rows = 0;
-    int inverse_flag = 0;
-    int first_ascii = -1;
-    int last_ascii = -1;
-    int font_size = 0;
-
     const char* const usage[] = {
-        "snatch [options] <input_file>",
+        "snatch [options]",
         nullptr
     };
 
@@ -130,37 +43,15 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     
     // Use macros to avoid missing-field warnings in C++
     struct argparse_option options[] = {
-        // margins & padding
-        OPT_STRING('m', "margins",  &margins_str,  "image margins: left,top,right,bottom (up to 4)"),
-        OPT_STRING('p', "padding",  &padding_str,  "glyph padding: left,top,right,bottom (up to 4)"),
-
-        // grid
-        OPT_INTEGER('c', "columns", &columns,      "number of columns"),
-        OPT_INTEGER('r', "rows",    &rows,         "number of rows"),
-
-        // source format (ttf | image)
-        OPT_STRING('s', "source-format", &src_fmt_str, "source format: image|ttf"),
-
-        // output file
-        OPT_STRING('o', "output",  &out_file_str,  "output filename"),
+        OPT_STRING('q', "extractor",            &extractor_str,       "extractor plugin name override"),
+        OPT_STRING('v', "extractor-parameters", &extractor_params_str,"parameters for extractor (quoted ok)"),
         OPT_STRING('d', "plugin-dir", &plugin_dir_str, "plugin directory override"),
 
         // exporter and parameters
         OPT_STRING('e', "exporter",             &exporter_str,        "exporter name (plugin/tool)"),
         OPT_STRING('x', "exporter-parameters",  &exporter_params_str, "parameters for exporter (quoted ok)"),
-
-        // inverse
-        OPT_BOOLEAN('i', "inverse", &inverse_flag, "invert image"),
-
-        // colors
-        OPT_STRING('f', "fore-color",         &fore_str,        "foreground color #RRGGBB"),
-        OPT_STRING('b', "back-color",         &back_str,        "background color #RRGGBB"),
-        OPT_STRING('t', "transparent-color",  &transp_str, "transparent color #RRGGBB"),
-
-        // ascii range
-        OPT_INTEGER('a', "first-ascii", &first_ascii, "first ascii code"),
-        OPT_INTEGER('z', "last-ascii",  &last_ascii,  "last ascii code"),
-        OPT_INTEGER('u', "font-size", &font_size, "font pixel size (ppem); auto if omitted"),
+        OPT_STRING('w', "transformer",          &transformer_str,        "transformer name (plugin/tool)"),
+        OPT_STRING('y', "transformer-parameters", &transformer_params_str, "parameters for transformer (quoted ok)"),
 
         OPT_HELP(),
         OPT_END()
@@ -171,64 +62,21 @@ int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     struct argparse ap{};
     argparse_init(&ap, options, usage, 0);
     argparse_describe(&ap, "snatch font processor",
-                           "example: snatch --source-format ttf -o out.bin MyFont.ttf");
+                           "example: snatch --extractor ttf_extractor --extractor-parameters \"input=MyFont.ttf\" --exporter raw_bin --exporter-parameters \"output=out.bin\"");
     int nargs = argparse_parse(&ap, argc, normalized_argv.data());
 
-    // positional input file required
-    if (nargs < 1) {
-        std::cerr << "error: input file is required\n";
+    if (nargs != 0) {
+        std::cerr << "error: unexpected positional arguments; pass input via --extractor-parameters input=...\n";
         return 1;
     }
 
     // fill output struct
-    out.input_file = std::filesystem::path(normalized_argv[argc - nargs]);
-    out.columns = columns;
-    out.rows = rows;
-    out.inverse = (inverse_flag != 0);
-    if (out_file_str) out.output_file = out_file_str;
     if (plugin_dir_str) out.plugin_dir = plugin_dir_str;
+    if (extractor_str) out.extractor = extractor_str;
+    if (extractor_params_str) out.extractor_parameters = extractor_params_str;
     if (exporter_str) out.exporter = exporter_str;
     if (exporter_params_str) out.exporter_parameters = exporter_params_str;
-    out.src_fmt = parse_source_format(src_fmt_str);
-
-    if (margins_str && !parse_edge4_csv(margins_str, out.margins)) {
-        std::cerr << "error: invalid --margins; expected up to 4 positive integers (left,top,right,bottom)\n";
-        return 2;
-    }
-    if (padding_str && !parse_edge4_csv(padding_str, out.padding)) {
-        std::cerr << "error: invalid --padding; expected up to 4 positive integers (left,top,right,bottom)\n";
-        return 2;
-    }
-
-    if (fore_str && !parse_hex_color(fore_str, out.fore_color)) {
-        std::cerr << "error: invalid --fore-color; expected #RRGGBB\n";
-        return 2;
-    }
-    if (back_str && !parse_hex_color(back_str, out.back_color)) {
-        std::cerr << "error: invalid --back-color; expected #RRGGBB\n";
-        return 2;
-    }
-    if (transp_str) {
-    if (!parse_hex_color(transp_str, out.transparent_color)) {
-        std::cerr << "error: invalid --transparent-color; expected #RRGGBB\n";
-        return 2;
-    }
-    out.has_transparent = true;
-}
-
-    out.first_ascii = first_ascii;
-    out.last_ascii  = last_ascii;
-    out.font_size = font_size;
-    if ((out.first_ascii >= 0 && out.last_ascii >= 0) && out.first_ascii > out.last_ascii) {
-        std::cerr << "error: --first-ascii must be <= --last-ascii\n";
-        return 2;
-    }
-
-    if (out.src_fmt == source_format::unknown) {
-        std::cerr << "warning: --source-format not set (use image|ttf)\n";
-    }
-    if (out.output_file.empty()) {
-        std::cerr << "warning: no --output specified\n";
-    }
+    if (transformer_str) out.transformer = transformer_str;
+    if (transformer_params_str) out.transformer_parameters = transformer_params_str;
     return 0;
 }

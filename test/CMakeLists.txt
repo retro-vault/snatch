@@ -39,6 +39,8 @@ add_dependencies(snatch_tests prepare_test_data)
 # Provide absolute path macro to tests
 target_compile_definitions(snatch_tests
   PRIVATE TEST_DATA_DIR="${TEST_DATA_BIN_DIR}"
+          SNATCH_BIN_PATH="${PROJECT_SOURCE_DIR}/bin/snatch"
+          SNATCH_PLUGIN_DIR_PATH="${PROJECT_SOURCE_DIR}/bin/plugins"
 )
 
 # 4) register with CTest

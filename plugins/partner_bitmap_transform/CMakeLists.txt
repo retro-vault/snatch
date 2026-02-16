@@ -1,0 +1,2 @@
+add_snatch_plugin(partner_bitmap_transform partner_bitmap_transform_plugin.cpp)
+

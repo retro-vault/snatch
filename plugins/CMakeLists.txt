@@ -3,6 +3,7 @@ function(add_snatch_plugin target)
   target_include_directories(${target}
     PRIVATE
       ${PROJECT_SOURCE_DIR}/include
+      ${PROJECT_SOURCE_DIR}/plugins/include
   )
   target_compile_features(${target} PRIVATE cxx_std_20)
 
@@ -23,3 +24,14 @@ endfunction()
 
 add_subdirectory(dummy)
 add_subdirectory(png)
+add_subdirectory(ttf_extractor)
+add_subdirectory(image_extractor)
+add_subdirectory(image_passthrough_extractor)
+add_subdirectory(dither_1bpp_transform)
+add_subdirectory(fzx_transform)
+add_subdirectory(partner_tiny_transform)
+add_subdirectory(partner_bitmap_transform)
+add_subdirectory(partner_asm)
+add_subdirectory(partner_bitmap_asm)
+add_subdirectory(raw_bin)
+add_subdirectory(raw_c)

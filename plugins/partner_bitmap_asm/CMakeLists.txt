@@ -1,0 +1,1 @@
+add_snatch_plugin(partner_sdcc_asm_bitmap partner_bitmap_asm_plugin.cpp)

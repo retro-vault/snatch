@@ -1,12 +1,10 @@
 #include "snatch/plugin.h"
+#include "snatch/plugin_util.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <string>
+#include <array>
 #include <vector>
 
 extern "C" {
@@ -15,27 +13,32 @@ extern "C" {
 
 namespace {
 
-const char* find_option(const snatch_kv* options, unsigned count, const char* key) {
-    if (!options || !key) return nullptr;
-    for (unsigned i = 0; i < count; ++i) {
-        if (!options[i].key || !options[i].value) continue;
-        if (std::strcmp(options[i].key, key) == 0) return options[i].value;
-    }
-    return nullptr;
-}
-
-int parse_positive(const char* s) {
-    if (!s || *s == '\0') return 0;
-    char* end = nullptr;
-    const long v = std::strtol(s, &end, 10);
-    if (end == s || *end != '\0' || v <= 0 || v > 1000000) return 0;
-    return static_cast<int>(v);
+int parse_positive(std::optional<std::string_view> raw) {
+    if (!raw || raw->empty()) return 0;
+    const auto value = plugin_parse_int(*raw);
+    if (!value || *value <= 0 || *value > 1000000) return 0;
+    return *value;
 }
 
 inline bool bit_is_set(const unsigned char* row, int x) {
     const int byte_index = x / 8;
     const int bit_index = 7 - (x % 8);
     return (row[byte_index] & (1u << bit_index)) != 0;
+}
+
+inline void set_rgb_pixel(
+    std::vector<unsigned char>& img,
+    int image_w,
+    int image_h,
+    int x,
+    int y,
+    const std::array<unsigned char, 3>& color
+) {
+    if (x < 0 || x >= image_w || y < 0 || y >= image_h) return;
+    const size_t i = static_cast<size_t>((y * image_w + x) * 3);
+    img[i + 0] = color[0];
+    img[i + 1] = color[1];
+    img[i + 2] = color[2];
 }
 
 void draw_glyph(
@@ -55,7 +58,10 @@ void draw_glyph(
             const int xx = dst_x + x;
             if (xx < 0 || xx >= image_w) continue;
             if (bit_is_set(row, x)) {
-                img[static_cast<size_t>(yy * image_w + xx)] = 0; // black pixel
+                const size_t i = static_cast<size_t>((yy * image_w + xx) * 3);
+                img[i + 0] = 0;
+                img[i + 1] = 0;
+                img[i + 2] = 0;
             }
         }
     }
@@ -73,26 +79,39 @@ static int export_png_grid(
     char* errbuf,
     unsigned errbuf_len
 ) {
+    const plugin_kv_view kv{options, options_count};
+
     if (!font || !font->bitmap_font || !font->bitmap_font->glyphs) {
-        if (errbuf && errbuf_len > 0) std::snprintf(errbuf, errbuf_len, "png: bitmap font data missing");
+        plugin_set_err(errbuf, errbuf_len, "png: bitmap font data missing");
         return 10;
     }
     if (!output_path || output_path[0] == '\0') {
-        if (errbuf && errbuf_len > 0) std::snprintf(errbuf, errbuf_len, "png: output path is empty");
+        plugin_set_err(errbuf, errbuf_len, "png: output path is empty");
         return 11;
     }
 
     const snatch_bitmap_font& bf = *font->bitmap_font;
     const int glyph_count = bf.glyph_count;
     if (glyph_count <= 0) {
-        if (errbuf && errbuf_len > 0) std::snprintf(errbuf, errbuf_len, "png: no glyphs to export");
+        plugin_set_err(errbuf, errbuf_len, "png: no glyphs to export");
         return 12;
     }
 
-    int cols = parse_positive(find_option(options, options_count, "columns"));
-    int rows = parse_positive(find_option(options, options_count, "rows"));
-    int padding = parse_positive(find_option(options, options_count, "padding"));
+    int cols = parse_positive(kv.get("columns"));
+    int rows = parse_positive(kv.get("rows"));
+    int padding = parse_positive(kv.get("padding"));
+    int grid_thickness = parse_positive(kv.get("grid_thickness"));
+    std::array<unsigned char, 3> grid_color{0, 0, 0};
+    if (const auto grid_color_raw = kv.get("grid_color"); grid_color_raw && !grid_color_raw->empty()) {
+        const auto parsed = plugin_parse_hex_rgb(*grid_color_raw);
+        if (!parsed) {
+            plugin_set_err(errbuf, errbuf_len, "png: invalid grid_color; expected #RRGGBB");
+            return 15;
+        }
+        grid_color = *parsed;
+    }
     if (padding <= 0) padding = 0;
+    if (grid_thickness <= 0) grid_thickness = 0;
     if (cols <= 0 && rows <= 0) {
         cols = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(glyph_count))));
         rows = static_cast<int>(std::ceil(static_cast<double>(glyph_count) / cols));
@@ -118,11 +137,11 @@ static int export_png_grid(
     const int image_w = cols * draw_w;
     const int image_h = rows * draw_h;
     if (image_w <= 0 || image_h <= 0) {
-        if (errbuf && errbuf_len > 0) std::snprintf(errbuf, errbuf_len, "png: invalid image dimensions");
+        plugin_set_err(errbuf, errbuf_len, "png: invalid image dimensions");
         return 13;
     }
 
-    std::vector<unsigned char> image(static_cast<size_t>(image_w * image_h), 255); // white background
+    std::vector<unsigned char> image(static_cast<size_t>(image_w * image_h * 3), 255); // white background
 
     for (int i = 0; i < glyph_count; ++i) {
         const int gx = (i % cols) * draw_w + padding;
@@ -133,8 +152,29 @@ static int export_png_grid(
         draw_glyph(image, image_w, image_h, draw_x, draw_y, bf.glyphs[i]);
     }
 
-    if (stbi_write_png(output_path, image_w, image_h, 1, image.data(), image_w) == 0) {
-        if (errbuf && errbuf_len > 0) std::snprintf(errbuf, errbuf_len, "png: failed to write png");
+    if (grid_thickness > 0) {
+        for (int c = 0; c <= cols; ++c) {
+            const int x0 = c * draw_w;
+            for (int t = 0; t < grid_thickness; ++t) {
+                const int x = x0 + t;
+                for (int y = 0; y < image_h; ++y) {
+                    set_rgb_pixel(image, image_w, image_h, x, y, grid_color);
+                }
+            }
+        }
+        for (int r = 0; r <= rows; ++r) {
+            const int y0 = r * draw_h;
+            for (int t = 0; t < grid_thickness; ++t) {
+                const int y = y0 + t;
+                for (int x = 0; x < image_w; ++x) {
+                    set_rgb_pixel(image, image_w, image_h, x, y, grid_color);
+                }
+            }
+        }
+    }
+
+    if (stbi_write_png(output_path, image_w, image_h, 3, image.data(), image_w * 3) == 0) {
+        plugin_set_err(errbuf, errbuf_len, "png: failed to write png");
         return 14;
     }
     return 0;
@@ -144,7 +184,11 @@ static const snatch_plugin_info k_info = {
     "png",
     "Exports bitmap glyphs into a PNG grid",
     "snatch project",
+    "png",
+    "snatch-grid",
     SNATCH_PLUGIN_ABI_VERSION,
+    SNATCH_PLUGIN_KIND_EXPORTER,
+    nullptr,
     &export_png_grid
 };
 

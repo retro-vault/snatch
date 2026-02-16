@@ -1,0 +1,2 @@
+add_snatch_plugin(image_extractor image_extractor_plugin.cpp)
+target_link_libraries(image_extractor PRIVATE libsnatch)

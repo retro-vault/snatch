@@ -1,43 +1,14 @@
 #pragma once
-#include <string>
 #include <filesystem>
-
-struct edge4 {
-    int left{0}, top{0}, right{0}, bottom{0};
-};
-
-struct color_rgb {
-    int r{0}, g{0}, b{0}; // 0..255
-};
-
-enum class source_format {
-    unknown,
-    image,
-    ttf
-};
+#include <string>
 
 struct snatch_options {
-    edge4 margins{};
-    int columns{0};
-    int rows{0};
-    edge4 padding{};
-
-    source_format src_fmt{source_format::unknown};
-    std::filesystem::path input_file;
-    std::filesystem::path output_file;
     std::filesystem::path plugin_dir;
 
+    std::string extractor;
+    std::string extractor_parameters;
     std::string exporter;
     std::string exporter_parameters;
-
-    bool inverse{false};
-
-    color_rgb fore_color{0,0,0};            // black
-    color_rgb back_color{255,255,255};      // white
-    color_rgb transparent_color{255,0,255}; // default magenta (conventional)
-    bool has_transparent{false};
-
-    int first_ascii{-1};
-    int last_ascii{-1};
-    int font_size{0}; // ppem. <=0 means auto-select.
+    std::string transformer;
+    std::string transformer_parameters;
 };

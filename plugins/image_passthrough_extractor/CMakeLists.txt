@@ -1,0 +1,2 @@
+add_snatch_plugin(image_passthrough_extractor image_passthrough_extractor_plugin.cpp)
+target_link_libraries(image_passthrough_extractor PRIVATE stb_image)

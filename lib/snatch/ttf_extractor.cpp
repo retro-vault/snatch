@@ -1,28 +1,15 @@
 #include "snatch/ttf_extractor.h"
+#include "snatch/glyph_algorithms.h"
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-snatch_font extracted_font::as_plugin_font() const {
-    snatch_font out{};
-    out.name = name.c_str();
-    out.glyph_width = glyph_width;
-    out.glyph_height = glyph_height;
-    out.first_codepoint = first_codepoint;
-    out.last_codepoint = last_codepoint;
-    out.pixel_size = pixel_size;
-    out.bitmap_font = &bitmap_view;
-    out.user_data = nullptr;
-    return out;
-}
-
 namespace {
 
-bool rasterize_glyph(FT_Face face, int codepoint, extracted_glyph& out, std::string& err) {
+bool rasterize_glyph(FT_Face face, int codepoint, bool proportional, extracted_glyph& out, std::string& err) {
     const int flags = FT_LOAD_RENDER | FT_LOAD_MONOCHROME | FT_LOAD_TARGET_MONO;
     if (FT_Load_Char(face, static_cast<FT_ULong>(codepoint), flags) != 0) {
         err = "failed to load glyph for codepoint " + std::to_string(codepoint);
@@ -53,8 +40,14 @@ bool rasterize_glyph(FT_Face face, int codepoint, extracted_glyph& out, std::str
         for (int y = 0; y < rows; ++y) {
             const unsigned char* src = bmp.buffer + static_cast<size_t>(y * stride);
             unsigned char* dst = out.bitmap.data() + static_cast<size_t>(y * stride);
-            std::memcpy(dst, src, static_cast<size_t>(stride));
+            std::copy_n(src, static_cast<size_t>(stride), dst);
         }
+    }
+
+    if (proportional) {
+        out.view.data = out.bitmap.empty() ? nullptr : out.bitmap.data();
+        const int rightmost = glyph_bitmap_analyzer::rightmost_set_bit(out.view);
+        out.view.width = (rightmost >= 0) ? (rightmost + 1) : 0;
     }
     out.view.data = out.bitmap.data();
     return true;
@@ -89,7 +82,7 @@ int ttf_extractor::choose_natural_size(void* ft_face) {
         for (int c : sample_chars) {
             extracted_glyph g;
             std::string err;
-            if (!rasterize_glyph(face, c, g, err)) continue;
+            if (!rasterize_glyph(face, c, false, g, err)) continue;
             if (g.view.width > 0 && g.view.height > 0) {
                 ++non_empty;
                 total_h += g.view.height;
@@ -111,7 +104,7 @@ int ttf_extractor::choose_natural_size(void* ft_face) {
     return best_size;
 }
 
-bool ttf_extractor::extract(const snatch_options& opt, extracted_font& out, std::string& err) const {
+bool ttf_extractor::extract(const ttf_extract_options& opt, extracted_font& out, std::string& err) const {
     FT_Library library = nullptr;
     if (FT_Init_FreeType(&library) != 0) {
         err = "failed to initialize FreeType";
@@ -159,7 +152,7 @@ bool ttf_extractor::extract(const snatch_options& opt, extracted_font& out, std:
 
     for (int cp = first; cp <= last; ++cp) {
         extracted_glyph g;
-        if (!rasterize_glyph(face, cp, g, err)) {
+        if (!rasterize_glyph(face, cp, opt.proportional, g, err)) {
             FT_Done_Face(face);
             FT_Done_FreeType(library);
             return false;

@@ -1,0 +1,2 @@
+add_snatch_plugin(fzx_transform fzx_transform_plugin.cpp)
+target_link_libraries(fzx_transform PRIVATE snatch_algorithms)

@@ -1,0 +1,2 @@
+add_snatch_plugin(ttf_extractor ttf_extractor_plugin.cpp)
+target_link_libraries(ttf_extractor PRIVATE libsnatch)

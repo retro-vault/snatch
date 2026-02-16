@@ -1,0 +1,1 @@
+add_snatch_plugin(dither_1bpp_transform dither_1bpp_transform_plugin.cpp)

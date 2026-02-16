@@ -1,0 +1,3 @@
+add_snatch_plugin(partner_tiny_transform partner_tiny_transform_plugin.cpp)
+target_link_libraries(partner_tiny_transform PRIVATE snatch_algorithms)
+

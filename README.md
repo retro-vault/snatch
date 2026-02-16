@@ -2,202 +2,285 @@
 
 # snatch
 
-snatch is a small utility that extracts bitmap fonts from images or TTF files — a font “snatcher” for developers, pixel artists, and retro game enthusiasts.
+`snatch` is a plugin-driven bitmap processing pipeline for retro/pixel workflows.
 
-snatch takes a PNG image containing a full printed font sheet (or a TrueType font) and automatically slices it into individual character bitmaps. It’s perfect for converting fonts you find online into usable bitmap font assets for games, demos, or embedded systems.
+It is still great for bitmap fonts, but the architecture is now more generic:
+- extract bitmap data from a source
+- transform that data (optional)
+- export in a target format
 
-# How it works
+## Architecture
 
-You provide a few simple parameters describing the layout of the source image:
- - margin – space around the font grid
- - padding – spacing between characters
- - columns / rows – how many characters per line and column
- - character width / height – size of each letter in pixels
- - first ASCII code – the starting character (e.g. 32 for space)
-snatch then cuts the image grid character by character, assigning ASCII codes in sequence and producing a full bitmap font ready for use.
+`snatch` runs in three stages:
 
-# Building and testing
+1. Extractor plugin
+- Reads the input source (`ttf`, `image`, etc.)
+- Produces a `snatch_font` bitmap representation
 
-snatch uses **CMake** and **GoogleTest** for building and unit testing. It builds cleanly on Linux (GCC or Clang).
+2. Transformer plugin (optional)
+- Reads `snatch_font`
+- Can annotate or replace data through `font->user_data`
 
-## Build the project
+3. Exporter plugin
+- Reads `snatch_font` and optional transformed data
+- Writes the final artifact (`.png`, `.s`, `.bin`, `.c`, ...)
+
+Pipeline examples:
+
+```text
+TTF -> ttf_extractor -> partner_tiny_transform -> partner_sdcc_asm_tiny -> .s
+image -> image_extractor -> (no transform) -> raw_bin -> .bin
+```
+
+This is why the new model is more flexible: with appropriate plugins, you can run non-font flows too (for example: extract one glyph/region from color image -> dither transform -> 1bpp image export).
+
+## Current Capabilities
+
+- Extract bitmap font glyphs from image sheets (`image_extractor`)
+- Rasterize TTF fonts to 1bpp glyph bitmaps (`ttf_extractor`)
+- Run optional transformers before export
+- Export to PNG grid, Partner SDCC ASM (tiny or bitmap), raw binary, and raw C array
+- Control ASCII range, colors, margins/padding, font size, fixed/proportional mode
+
+## Quick Start
+
+### Build
 
 ```bash
-# clone and enter the repo
 git clone https://github.com/retro-vault/snatch.git
 cd snatch
-
-# create and enter the build folder
-mkdir build && cd build
-
-# configure with CMake
-cmake .. -DCMAKE_BUILD_TYPE=Debug
-
-# build everything (app, library, and tests)
-make -j$(nproc)
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j$(nproc)
 ```
 
-The resulting binaries will be in:
-
-```
-bin/snatch           → main command-line tool  
-test/snatch_tests    → GoogleTest-based unit tests
-```
-
-## Run the tests
-
-To run all tests you can invoke the test binary directly:
+### Run tests
 
 ```bash
-./bin/snatch_tests
+ctest --test-dir build --output-on-failure
 ```
 
-## Run snatch
+## Common Workflows
 
-### Command-line options
+### 1) TTF -> PNG grid
 
-| Option | Alias | Arguments | Description |
+```bash
+./bin/snatch \
+  --plugin-dir ./bin/plugins \
+  --extractor-parameters "input=fonts/Retro.ttf,first_ascii=32,last_ascii=126,font_size=16" \
+  --exporter png \
+  --exporter-parameters "output=out/font-grid.png,columns=16,rows=6"
+```
+
+### 2) Image sheet -> continuous raw binary
+
+```bash
+./bin/snatch \
+  --plugin-dir ./bin/plugins \
+  --extractor-parameters "input=assets/fontsheet.png,margins_left=2,margins_top=2,margins_right=2,margins_bottom=2,padding_left=1,padding_top=1,padding_right=1,padding_bottom=1,columns=16,rows=6,first_ascii=32,last_ascii=126,fore_color=#000000,back_color=#FFFFFF" \
+  --exporter raw_bin \
+  --exporter-parameters "output=out/font.bin"
+```
+
+### 3) TTF -> Partner Tiny SDCC ASM
+
+```bash
+./bin/snatch \
+  --plugin-dir ./bin/plugins \
+  --extractor-parameters "input=fonts/Retro.ttf,first_ascii=32,last_ascii=127,font_size=16" \
+  --transformer partner_tiny_transform \
+  --exporter partner_sdcc_asm_tiny \
+  --exporter-parameters "output=out/my_font.s,module=my_font,symbol=my_font,proportional=true,space_width=3,letter_spacing=2"
+```
+
+### 4) TTF -> raw C bytes
+
+```bash
+./bin/snatch \
+  --plugin-dir ./bin/plugins \
+  --extractor-parameters "input=fonts/Retro.ttf,first_ascii=32,last_ascii=127,font_size=16" \
+  --transformer partner_bitmap_transform \
+  --transformer-parameters "font_mode=proportional,space_width=3,letter_spacing=2" \
+  --exporter raw_c \
+  --exporter-parameters "output=out/font_raw.c,bytes_per_line=8,symbol=font_data"
+```
+
+## Plugin Catalog
+
+### Extractors
+
+| Name | Input | Purpose |
+|:--|:--|:--|
+| `ttf_extractor` | `ttf` | Rasterize TTF glyphs into 1bpp bitmap glyphs |
+| `image_extractor` | `image` | Extract glyph bitmaps from grid image sheets |
+| `image_passthrough_extractor` | `image` | Load full image as grayscale passthrough payload in `user_data` |
+
+### Transformers
+
+| Name | Purpose | Notes |
+|:--|:--|:--|
+| `partner_tiny_transform` | Vectorize bitmap glyphs into Partner Tiny move streams | Intended for `partner_sdcc_asm_tiny` |
+| `partner_bitmap_transform` | Serialize bitmap font to Partner bitmap byte stream | Intended for `partner_sdcc_asm_bitmap`, `raw_bin`, `raw_c` |
+| `fzx-transform` | Compute ZX Spectrum FZX-style glyph metadata | Stores metadata in `font->user_data` |
+| `dither_1bpp_transform` | Dither grayscale passthrough image to 1bpp bitmap glyph | Intended for `image_passthrough_extractor` + `png` |
+
+### Exporters
+
+| Name | Format | Standard | Purpose |
 |:--|:--|:--|:--|
-| `--margins` | `-m` | *l,t,r,b* | Margins around the entire font grid (in pixels). Up to 4 comma-separated numbers: left, top, right, bottom. Missing values repeat the last one. Example: `-m 4,8` → left=4, top=8, right=8, bottom=8. |
-| `--padding` | `-p` | *l,t,r,b* | Padding around each individual glyph (in pixels). Same format as margins. |
-| `--columns` | `-c` | *n* | Number of glyphs per row in the image. |
-| `--rows` | `-r` | *n* | Number of rows of glyphs in the image. |
-| `--source-format` | `-s` | *ttf* \| *image* | Specifies the input type: either a TrueType font (`ttf`) or a bitmap image (`image`). |
-| *(positional)* | — | *filename* | Input file to process (e.g. `font.png` or `font.ttf`). |
-| `--output` | `-o` | *file* | Output filename for the exported bitmap font. |
-| `--plugin-dir` | `-d` | *dir* | Override plugin lookup directory (highest priority). |
-| `--exporter` | `-e` | *name* | Name of the exporter plugin to use (e.g. `bin`, `asm`, `json`). |
-| `--exporter-parameters` | `-x` | *string* | Optional quoted string of extra parameters to pass to the exporter plugin. |
-| `--inverse` | `-i` | — | Inverts image colors before processing (useful for white-on-black images). |
-| `--fore-color` | `-f` | *hexcolor* | Foreground (glyph) color, e.g. `#FFFFFF` or `A0B1C2`. |
-| `--back-color` | `-b` | *hexcolor* | Background color, same format as above. |
-| `--transparent-color` | `-t` | *hexcolor* | Transparent color, same format as above. |
-| `--first-ascii` | `-a` | *n* | ASCII code of the first glyph in the grid (usually 32 for space). |
-| `--last-ascii` | `-z` | *n* | ASCII code of the last glyph in the grid (usually 126 for tilde). |
-| `--font-size` | `-u` | *ppem* | Pixel size for TTF rasterization. If omitted, snatch auto-selects a size. |
-| `--help` | `-h` | — | Displays help and usage information. |
+| `png` | `png` | `snatch-grid` | Render bitmap font as PNG grid |
+| `partner_sdcc_asm_tiny` | `asm` | `partner-sdcc-asm-tiny` | SDCC assembly export for Partner tiny format |
+| `partner_sdcc_asm_bitmap` | `asm` | `partner-sdcc-asm-bitmap` | SDCC assembly export for Partner bitmap format |
+| `raw_bin` | `bin` | `raw-1bpp` | Raw continuous byte stream |
+| `raw_c` | `c` | `raw-1bpp` | Raw byte stream as `const uint8_t[]` |
+| `dummy` | `txt` | `debug-dump` | Diagnostic exporter |
 
+## Important CLI Options
 
-### Examples
+| Option | Alias | Description |
+|:--|:--|:--|
+| `--extractor` | `-q` | Optional extractor plugin override |
+| `--extractor-parameters` | `-v` | Extractor params (`k=v,...`) |
+| `--plugin-dir` | `-d` | Plugin search directory override |
+| `--transformer` | `-w` | Optional transformer plugin name |
+| `--transformer-parameters` | `-y` | Transformer params (`k=v,...`) |
+| `--exporter` | `-e` | Exporter plugin name |
+| `--exporter-parameters` | `-x` | Exporter params (`k=v,...`) |
 
-Extract a bitmap font from a PNG font sheet:
+Stage-specific tuning should be passed to the owning plugin:
+- extractor options via `--extractor-parameters`
+- transformer options via `--transformer-parameters`
+- exporter options via `--exporter-parameters`
 
-```bash
-./bin/snatch \
-  -sf image \
-  -m 2,2,2,2 \
-  -p 1 \
-  -c 16 -r 6 \
-  -a 32 -z 126 \
-  -f "#000000" -b "#FFFFFF" \
-  -e bin -o output/font.bin \
-  assets/fontsheet.png
-```
+If `--extractor` is omitted, `snatch` infers it from input extension:
+- `.ttf`, `.otf` -> `ttf_extractor`
+- common image extensions (`.png`, `.jpg`, `.jpeg`, ...) -> `image_extractor`
 
-Convert a TTF file to a PNG glyph grid (1bpp, anti-aliasing off):
+Required ownership split:
+- extractor owns input path: set `input=...` in `--extractor-parameters`
+- exporter owns output path: set `output=...` in `--exporter-parameters`
+- there is no positional input argument and no root `--output` option anymore
 
-```bash
-./bin/snatch \
-  --plugin-dir ./bin/plugins \
-  --source-format ttf \
-  --exporter png \
-  --columns 16 --rows 6 \
-  --first-ascii 32 --last-ascii 126 \
-  --output out/font-grid.png \
-  fonts/Retro.ttf
-```
+Use concrete exporter names directly (no separate format parameter):
+- `partner_sdcc_asm_tiny`
+- `partner_sdcc_asm_bitmap`
+- `raw_c`
+- `raw_bin`
+- `png`
 
-Convert a TTF to PNG with fixed size and padding:
+Concept example (full image passthrough -> dither -> PNG):
 
 ```bash
 ./bin/snatch \
   --plugin-dir ./bin/plugins \
-  --source-format ttf \
+  --extractor image_passthrough_extractor \
+  --extractor-parameters "input=test/data/tut.png" \
+  --transformer dither_1bpp_transform \
+  --transformer-parameters "threshold=128" \
   --exporter png \
-  --columns 16 --rows 6 \
-  --first-ascii 32 \
-  --last-ascii 126 \
-  --font-size 16 \
-  --exporter-parameters "padding=3" \
-  --output out/font-grid.png \
-  fonts/Retro.ttf
+  --exporter-parameters "output=out/tut_dither_1bpp.png,columns=1,rows=1,padding=0,grid_thickness=0"
 ```
 
-# Planned Features
+## Plugin Discovery
 
- - Extracts bitmap fonts from PNG font sheets
- - Imports TTF fonts and converts them into bitmap grids
- - Creates printed font sheets from any supported font
- - Flexible layout control (margin, padding, grid size, etc.)
- - Plugin-based export system — output to multiple bitmap font formats
- - Lightweight and fast command-line tool
- - Ideal for retro, pixel-art, and embedded projects
+`snatch` searches plugin directories in this order and stops at the first one that provides the requested plugins:
 
-# Export plugins
+1. `--plugin-dir <dir>`
+2. `SNATCH_PLUGIN_DIR`
+3. `${CMAKE_INSTALL_FULL_LIBDIR}/snatch/plugins`
+4. `~/.local/lib/snatch/plugins`
 
-snatch supports modular exporters for different bitmap font formats (e.g. .fnt, .bdf, .bin, .json, or custom binary layouts). You can write your own plugin to match your engine’s needs.
+## Plugin Development
 
-## Plugin development
-
-An example plugin is included at `plugins/dummy/dummy_plugin.cpp`.
-
-- Plugin builds produce `.so` files in `bin/plugins`.
-- The plugin ABI is defined in `include/snatch/plugin.h`.
-- A plugin must export:
+Plugins export:
 
 ```c
 int snatch_plugin_get(const snatch_plugin_info** out);
 ```
 
-The `dummy` plugin is intentionally minimal and writes a debug text file from `export_font`, so you can use it to validate dynamic loading, ABI compatibility, and debugger setup.
+Plugin ABI: `include/snatch/plugin.h`
 
-### How snatch finds plugins
+`snatch_plugin_info.kind`:
+- `SNATCH_PLUGIN_KIND_EXTRACTOR` -> `extract_font`
+- `SNATCH_PLUGIN_KIND_TRANSFORMER` -> `transform_font`
+- `SNATCH_PLUGIN_KIND_EXPORTER` -> `export_font`
 
-`snatch` scans directories in priority order and stops at the first directory that contains at least one valid plugin (`*.so` implementing `snatch_plugin_get` with matching ABI).
+### Add a Plugin (Mini Template)
 
-Search order:
+1. Create a plugin folder and CMake file under `plugins/<name>/`.
+2. Add it to `plugins/CMakeLists.txt` with `add_subdirectory(<name>)`.
+3. Implement `snatch_plugin_get(...)` and a static `snatch_plugin_info`.
+4. Build and run with `--plugin-dir ./bin/plugins`.
 
-1. `--plugin-dir <dir>` CLI override
-2. `SNATCH_PLUGIN_DIR` environment variable
-3. compiled default install path: `${CMAKE_INSTALL_FULL_LIBDIR}/snatch/plugins`
-4. user-local fallback: `~/.local/lib/snatch/plugins`
+Extractor skeleton:
+
+```cpp
+int my_extract(
+    const char* input_path,
+    const snatch_kv* options,
+    unsigned options_count,
+    snatch_font* out_font,
+    char* errbuf,
+    unsigned errbuf_len
+);
+```
+
+Transformer skeleton:
+
+```cpp
+int my_transform(
+    snatch_font* font,
+    const snatch_kv* options,
+    unsigned options_count,
+    char* errbuf,
+    unsigned errbuf_len
+);
+```
+
+Exporter skeleton:
+
+```cpp
+int my_export(
+    const snatch_font* font,
+    const char* output_path,
+    const snatch_kv* options,
+    unsigned options_count,
+    char* errbuf,
+    unsigned errbuf_len
+);
+```
+
+Minimal plugin descriptor shape:
+
+```cpp
+const snatch_plugin_info k_info = {
+    "my_plugin",
+    "Short description",
+    "author",
+    "format-or-input",
+    "standard-or-profile",
+    SNATCH_PLUGIN_ABI_VERSION,
+    SNATCH_PLUGIN_KIND_EXPORTER, // or EXTRACTOR/TRANSFORMER
+    nullptr,                     // transform callback if transformer
+    nullptr,                     // export callback if exporter
+    nullptr                      // extract callback if extractor
+};
+```
 
 Notes:
+- For transformers, use `font->user_data` for stage-to-stage contracts.
+- For exporters, `format`/`standard` should be non-empty.
+- Keep plugin-owned buffers alive for as long as `snatch` may read them.
 
-- The first directory that yields at least one loadable plugin wins.
-- Plugins from later directories are not loaded once a match is found.
-- Non-plugin `.so` files or ABI-mismatched plugins are skipped with an error message.
-
-### TTF rasterization behavior
-
-- TTF glyphs are rasterized as 1bpp bitmaps (anti-aliasing off).
-- FreeType render flags used by snatch are monochrome (`FT_LOAD_MONOCHROME` + `FT_LOAD_TARGET_MONO`).
-- If `--font-size` is omitted, snatch auto-selects a size:
-  - prefers embedded fixed bitmap strikes (when present)
-  - otherwise runs a heuristic scan over common sizes
-
-## Third-party libraries and licenses
+## Third-party Libraries
 
 - FreeType (`freetype`): FreeType License (FTL) or GPLv2
-- stb (`stb_image`, `stb_image_write`): public domain or MIT license
-- argparse (`cofyc/argparse`): MIT license
-- GoogleTest (`googletest`): BSD 3-Clause license
+- stb (`stb_image`, `stb_image_write`): public domain or MIT
+- argparse (`cofyc/argparse`): MIT
+- GoogleTest (`googletest`): BSD 3-Clause
 
-## Font fixture attribution
+## Font Fixture Attribution
 
-TTF fonts included under `test/data` are freeware and remain copyright (c) their respective authors.
-
-Thank you to all font authors for making these fonts available.
-
-Examples:
-
-```bash
-# 1) Force plugin path explicitly
-./bin/snatch --plugin-dir ./bin/plugins -s image -o out.bin assets/font.png
-
-# 2) Use environment variable
-SNATCH_PLUGIN_DIR=./bin/plugins ./bin/snatch -s ttf -o out.bin fonts/font.ttf
-```
+TTF fonts under `test/data` are freeware and remain copyright of their authors.
 
 [language.url]:   https://en.wikipedia.org/wiki/C%2B%2B
 [language.badge]: https://img.shields.io/badge/language-C%2B%2B-blue.svg
@@ -208,4 +291,4 @@ SNATCH_PLUGIN_DIR=./bin/plugins ./bin/snatch -s ttf -o out.bin fonts/font.ttf
 [license.url]:    https://github.com/retro-vault/snatch/blob/master/LICENSE
 [license.badge]:  https://img.shields.io/badge/license-GPL2-blue.svg
 
-[status.badge]:  https://img.shields.io/badge/status-unstable-red.svg
+[status.badge]:  https://img.shields.io/badge/status-beta-orange.svg
