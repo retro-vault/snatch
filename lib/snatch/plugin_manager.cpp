@@ -1,3 +1,11 @@
+/// \file
+/// \brief Dynamic plugin loading, discovery, and lookup implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin_manager.h"
 
 #include <dlfcn.h>
@@ -11,18 +19,21 @@
 namespace fs = std::filesystem;
 
 namespace {
+/// \brief debug_plugins_enabled.
 bool debug_plugins_enabled() {
     const char* v = std::getenv("SNATCH_DEBUG_PLUGINS");
     return v && v[0] != '\0' && v[0] != '0';
 }
 }
 
+/// \brief plugin_manager::~plugin_manager.
 plugin_manager::~plugin_manager() {
     for (auto& p : plugins_) {
         if (p.handle) dlclose(p.handle);
     }
 }
 
+/// \brief plugin_manager::load_plugin_file.
 bool plugin_manager::load_plugin_file(const fs::path& path) {
     if (debug_plugins_enabled()) {
         std::cerr << "[plugin] try " << path << "\n";
@@ -116,6 +127,7 @@ bool plugin_manager::load_plugin_file(const fs::path& path) {
     return true;
 }
 
+/// \brief plugin_manager::load_from_dir.
 void plugin_manager::load_from_dir(const fs::path& dir) {
     plugins_.clear();
     std::error_code ec;
@@ -135,6 +147,7 @@ void plugin_manager::load_from_dir(const fs::path& dir) {
     }
 }
 
+/// \brief plugin_manager::load_named_from_dir.
 void plugin_manager::load_named_from_dir(const fs::path& dir, const std::vector<std::string>& names) {
     plugins_.clear();
     std::error_code ec;
@@ -154,6 +167,7 @@ void plugin_manager::load_named_from_dir(const fs::path& dir, const std::vector<
     }
 }
 
+/// \brief plugin_manager::load_from_dirs_in_order.
 void plugin_manager::load_from_dirs_in_order(const std::vector<fs::path>& dirs) {
     for (const auto& dir : dirs) {
         load_from_dir(dir);
@@ -163,6 +177,7 @@ void plugin_manager::load_from_dirs_in_order(const std::vector<fs::path>& dirs) 
     }
 }
 
+/// \brief plugin_manager::load_named_from_dirs_in_order.
 void plugin_manager::load_named_from_dirs_in_order(
     const std::vector<fs::path>& dirs,
     const std::vector<std::string>& names
@@ -185,6 +200,7 @@ void plugin_manager::load_named_from_dirs_in_order(
     }
 }
 
+/// \brief plugin_manager::find_by_name.
 const loaded_plugin* plugin_manager::find_by_name(const std::string& name) const {
     for (const auto& p : plugins_) {
         if (!p.info || !p.info->name) continue;
@@ -193,6 +209,7 @@ const loaded_plugin* plugin_manager::find_by_name(const std::string& name) const
     return nullptr;
 }
 
+/// \brief plugin_manager::find_by_name_and_kind.
 const loaded_plugin* plugin_manager::find_by_name_and_kind(const std::string& name, int kind) const {
     for (const auto& p : plugins_) {
         if (!p.info || !p.info->name) continue;
@@ -202,6 +219,7 @@ const loaded_plugin* plugin_manager::find_by_name_and_kind(const std::string& na
     return nullptr;
 }
 
+/// \brief plugin_manager::find_first_by_kind.
 const loaded_plugin* plugin_manager::find_first_by_kind(int kind) const {
     for (const auto& p : plugins_) {
         if (!p.info) continue;

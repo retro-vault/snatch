@@ -1,0 +1,2 @@
+add_snatch_plugin(partner_tiny_bin_extractor partner_tiny_bin_extractor_plugin.cpp)
+

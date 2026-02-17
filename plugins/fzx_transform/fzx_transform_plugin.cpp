@@ -1,3 +1,11 @@
+/// \file
+/// \brief FZX metadata transformer plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
 #include "snatch/glyph_algorithms.h"
@@ -16,6 +24,7 @@ struct fzx_transform_owner {
 
 static fzx_transform_owner g_owner;
 
+/// \brief fzx_transform.
 int fzx_transform(
     snatch_font* font,
     const snatch_kv* options,

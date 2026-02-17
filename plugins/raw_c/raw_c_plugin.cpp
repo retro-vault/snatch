@@ -1,3 +1,11 @@
+/// \file
+/// \brief Raw C array exporter plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch_plugins/partner_bitmap_transform.h"
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
@@ -16,6 +24,7 @@
 
 namespace {
 
+/// \brief partner_data_from_user_data.
 const snatch_partner_bitmap_data* partner_data_from_user_data(const snatch_font* font) {
     if (!font || !font->user_data) return nullptr;
     const auto* data = static_cast<const snatch_partner_bitmap_data*>(font->user_data);
@@ -24,12 +33,14 @@ const snatch_partner_bitmap_data* partner_data_from_user_data(const snatch_font*
     return data;
 }
 
+/// \brief bit_is_set.
 bool bit_is_set(const unsigned char* row, int x) {
     const int byte_index = x / 8;
     const int bit_index = 7 - (x % 8);
     return (row[byte_index] & (1u << bit_index)) != 0;
 }
 
+/// \brief find_glyph_by_codepoint.
 const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf, int codepoint) {
     for (int i = 0; i < bf.glyph_count; ++i) {
         if (bf.glyphs[i].codepoint == codepoint) return &bf.glyphs[i];
@@ -37,6 +48,7 @@ const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf,
     return nullptr;
 }
 
+/// \brief sanitize_c_ident.
 std::string sanitize_c_ident(std::string value) {
     if (value.empty()) return "font";
     for (char& c : value) {
@@ -48,6 +60,7 @@ std::string sanitize_c_ident(std::string value) {
     return value;
 }
 
+/// \brief parse_positive_int.
 std::optional<int> parse_positive_int(std::optional<std::string_view> raw, int fallback) {
     if (!raw || raw->empty()) return fallback;
     const auto parsed = plugin_parse_int(*raw);
@@ -55,6 +68,7 @@ std::optional<int> parse_positive_int(std::optional<std::string_view> raw, int f
     return *parsed;
 }
 
+/// \brief export_raw_c.
 int export_raw_c(
     const snatch_font* font,
     const char* output_path,

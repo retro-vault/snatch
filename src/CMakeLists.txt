@@ -29,18 +29,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(snatch PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-file(GLOB SNATCH_TEST_TTF_FONTS CONFIGURE_DEPENDS
-     "${PROJECT_SOURCE_DIR}/test/data/*.ttf")
-
-foreach(font_file ${SNATCH_TEST_TTF_FONTS})
-  add_custom_command(TARGET snatch POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${font_file}" "${PROJECT_SOURCE_DIR}/bin/"
-    COMMENT "Copying TTF fixture to bin: ${font_file}"
-    VERBATIM
-  )
-endforeach()
-
 install(TARGETS snatch
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

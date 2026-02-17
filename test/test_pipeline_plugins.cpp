@@ -1,3 +1,11 @@
+/// \file
+/// \brief End-to-end plugin pipeline integration tests.
+///
+/// This test source validates behavior of core parsing, extraction, transformation, and export flows. It helps ensure regressions are caught early for the plugin-driven pipeline.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include <gtest/gtest.h>
 
 #include <array>
@@ -17,6 +25,7 @@ struct cmd_result {
     std::string output;
 };
 
+/// \brief run_command_capture.
 cmd_result run_command_capture(const std::string& cmd) {
     cmd_result res;
     const std::string full = cmd + " 2>&1";
@@ -48,10 +57,12 @@ cmd_result run_command_capture(const std::string& cmd) {
     return res;
 }
 
+/// \brief q.
 std::string q(const std::filesystem::path& p) {
     return std::string("\"") + p.string() + "\"";
 }
 
+/// \brief read_file.
 std::string read_file(const std::filesystem::path& p) {
     std::ifstream in(p, std::ios::in | std::ios::binary);
     std::ostringstream ss;
@@ -173,4 +184,58 @@ TEST(pipeline_plugins, missing_exporter_output_parameter_is_error) {
     const auto res = run_command_capture(cmd);
     EXPECT_NE(res.exit_code, 0);
     EXPECT_NE(res.output.find("exporter output path is required"), std::string::npos) << res.output;
+}
+
+TEST(pipeline_plugins, partner_tiny_bin_roundtrip_to_png_grid) {
+    const std::filesystem::path tiny_bin = std::filesystem::temp_directory_path() / "snatch_partner_tiny_roundtrip.bin";
+    const std::filesystem::path png_out = std::filesystem::temp_directory_path() / "snatch_partner_tiny_roundtrip.png";
+    std::filesystem::remove(tiny_bin);
+    std::filesystem::remove(png_out);
+
+    const std::string encode_cmd =
+        std::string(SNATCH_BIN_PATH) +
+        " --plugin-dir " + q(SNATCH_PLUGIN_DIR_PATH) +
+        " --extractor-parameters \"input=" + (std::filesystem::path(TEST_DATA_DIR) / "flappybirdy-regular.ttf").string() + ",first_ascii=65,last_ascii=70,font_size=16\"" +
+        " --transformer partner_tiny_transform" +
+        " --exporter raw_bin" +
+        " --exporter-parameters \"output=" + tiny_bin.string() + ",font_mode=proportional,space_width=3,letter_spacing=1\"";
+
+    const auto encode_res = run_command_capture(encode_cmd);
+    ASSERT_EQ(encode_res.exit_code, 0) << encode_res.output;
+    ASSERT_TRUE(std::filesystem::exists(tiny_bin));
+    ASSERT_GT(std::filesystem::file_size(tiny_bin), 0u);
+
+    const std::string decode_cmd =
+        std::string(SNATCH_BIN_PATH) +
+        " --plugin-dir " + q(SNATCH_PLUGIN_DIR_PATH) +
+        " --extractor partner_tiny_bin_extractor" +
+        " --extractor-parameters \"input=" + tiny_bin.string() + "\"" +
+        " --transformer partner_tiny_raster_transform" +
+        " --exporter png" +
+        " --exporter-parameters \"output=" + png_out.string() + ",columns=3,rows=2,padding=1,grid_thickness=1\"";
+
+    const auto decode_res = run_command_capture(decode_cmd);
+    ASSERT_EQ(decode_res.exit_code, 0) << decode_res.output;
+    EXPECT_NE(decode_res.output.find("extracted with plugin: partner_tiny_bin_extractor"), std::string::npos) << decode_res.output;
+    EXPECT_NE(decode_res.output.find("transformed with plugin: partner_tiny_raster_transform"), std::string::npos) << decode_res.output;
+    EXPECT_NE(decode_res.output.find("exported with plugin: png"), std::string::npos) << decode_res.output;
+    ASSERT_TRUE(std::filesystem::exists(png_out));
+    EXPECT_GT(std::filesystem::file_size(png_out), 0u);
+}
+
+TEST(pipeline_plugins, partner_tiny_invalid_spacing_parameters_fail) {
+    const std::filesystem::path tiny_bin = std::filesystem::temp_directory_path() / "snatch_partner_tiny_invalid_spacing.bin";
+    std::filesystem::remove(tiny_bin);
+
+    const std::string cmd =
+        std::string(SNATCH_BIN_PATH) +
+        " --plugin-dir " + q(SNATCH_PLUGIN_DIR_PATH) +
+        " --extractor-parameters \"input=" + (std::filesystem::path(TEST_DATA_DIR) / "flappybirdy-regular.ttf").string() + ",first_ascii=65,last_ascii=70,font_size=16\"" +
+        " --transformer partner_tiny_transform" +
+        " --exporter raw_bin" +
+        " --exporter-parameters \"output=" + tiny_bin.string() + ",font_mode=proportional,space_width=9,letter_spacing=1\"";
+
+    const auto res = run_command_capture(cmd);
+    EXPECT_NE(res.exit_code, 0);
+    EXPECT_NE(res.output.find("space_width must be 0..7"), std::string::npos) << res.output;
 }

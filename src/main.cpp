@@ -1,3 +1,11 @@
+/// \file
+/// \brief Main executable pipeline orchestration entry point.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include <iostream>
 #include <filesystem>
 #include <vector>
@@ -14,6 +22,7 @@
 #include "snatch/plugin.h"
 #include "snatch/plugin_manager.h"
 
+/// \brief parse_kv_pairs.
 static std::vector<std::array<std::string, 2>> parse_kv_pairs(const std::string& raw) {
     std::vector<std::array<std::string, 2>> pairs;
     if (raw.empty()) return pairs;
@@ -41,6 +50,7 @@ static std::vector<std::array<std::string, 2>> parse_kv_pairs(const std::string&
     return pairs;
 }
 
+/// \brief print_kv_pairs.
 static void print_kv_pairs(const char* label, const std::string& raw) {
     const auto pairs = parse_kv_pairs(raw);
     if (pairs.empty()) return;
@@ -50,6 +60,7 @@ static void print_kv_pairs(const char* label, const std::string& raw) {
     }
 }
 
+/// \brief print_options.
 static void print_options(const snatch_options& opt) {
     std::cout << "snatch options:\n";
     std::cout << "  plugin dir: " << (opt.plugin_dir.empty() ? "(none)" : opt.plugin_dir.string()) << "\n";
@@ -64,6 +75,7 @@ static void print_options(const snatch_options& opt) {
     print_kv_pairs("exporter params", opt.exporter_parameters);
 }
 
+/// \brief trim_copy.
 static std::string trim_copy(std::string s) {
     const auto is_space = [](unsigned char c) { return std::isspace(c) != 0; };
     while (!s.empty() && is_space(static_cast<unsigned char>(s.front()))) s.erase(s.begin());
@@ -71,11 +83,13 @@ static std::string trim_copy(std::string s) {
     return s;
 }
 
+/// \brief to_lower_copy.
 static std::string to_lower_copy(std::string s) {
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
+/// \brief is_export_type_token.
 static bool is_export_type_token(const std::string& exporter) {
     const std::string e = to_lower_copy(exporter);
     return e == "asm" || e == "c" || e == "bin";
@@ -91,6 +105,7 @@ struct extractor_resolution {
     std::string error;
 };
 
+/// \brief find_kv_value.
 static std::optional<std::string> find_kv_value(const std::string& raw, std::string_view key) {
     for (const auto& pair : parse_kv_pairs(raw)) {
         if (pair[0] == key) return pair[1];
@@ -98,6 +113,7 @@ static std::optional<std::string> find_kv_value(const std::string& raw, std::str
     return std::nullopt;
 }
 
+/// \brief resolve_extractor_plugin.
 static extractor_resolution resolve_extractor_plugin(const snatch_options& opt, const std::string& input_path) {
     extractor_resolution out{};
     if (!opt.extractor.empty()) {
@@ -123,6 +139,7 @@ static extractor_resolution resolve_extractor_plugin(const snatch_options& opt, 
     return out;
 }
 
+/// \brief resolve_exporter_plugin.
 static exporter_resolution resolve_exporter_plugin(const snatch_options& opt) {
     exporter_resolution out{};
     if (opt.exporter.empty() || !is_export_type_token(opt.exporter)) {
@@ -163,6 +180,7 @@ static exporter_resolution resolve_exporter_plugin(const snatch_options& opt) {
     return out;
 }
 
+/// \brief add_kv.
 static void add_kv(
     std::vector<std::array<std::string, 2>>& storage,
     std::vector<snatch_kv>& out,
@@ -174,6 +192,7 @@ static void add_kv(
     out.push_back({pair[0].c_str(), pair[1].c_str()});
 }
 
+/// \brief append_kv_params.
 static void append_kv_params(
     const std::string& raw,
     std::vector<std::array<std::string, 2>>& storage,
@@ -206,6 +225,7 @@ static void append_kv_params(
     }
 }
 
+/// \brief main.
 int main(int argc, const char** argv) {
     snatch_options opt;
     cli_parser parser;

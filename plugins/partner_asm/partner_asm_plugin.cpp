@@ -1,3 +1,11 @@
+/// \file
+/// \brief Partner Tiny SDCC assembly exporter plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch_plugins/partner_tiny_transform.h"
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
@@ -27,6 +35,7 @@ struct export_state {
     [[nodiscard]] bool ok() const { return code == 0; }
 };
 
+/// \brief sanitize_symbol.
 std::string sanitize_symbol(std::string value) {
     if (value.empty()) return "snatch_font";
 
@@ -42,6 +51,7 @@ std::string sanitize_symbol(std::string value) {
     return value;
 }
 
+/// \brief default_symbol_from_output.
 std::string default_symbol_from_output(std::string_view output_path) {
     std::filesystem::path p{std::string(output_path)};
     std::string stem = p.stem().string();
@@ -49,6 +59,7 @@ std::string default_symbol_from_output(std::string_view output_path) {
     return sanitize_symbol(std::move(stem));
 }
 
+/// \brief write_dw_line.
 void write_dw_line(std::ostream& os, std::span<const std::uint16_t> values) {
     os << kIndent << ".dw ";
     for (std::size_t i = 0; i < values.size(); ++i) {
@@ -63,10 +74,12 @@ void write_dw_line(std::ostream& os, std::span<const std::uint16_t> values) {
     os << '\n';
 }
 
+/// \brief write_db_value.
 void write_db_value(std::ostream& os, std::uint8_t value, std::string_view comment) {
     os << kIndent << ".db " << std::left << std::setw(20) << static_cast<unsigned>(value) << "; " << comment << '\n';
 }
 
+/// \brief decode_move_comment.
 std::string decode_move_comment(std::uint8_t byte) {
     const int adx = static_cast<int>((byte >> 5u) & 0x3u);
     const int ady = static_cast<int>((byte >> 3u) & 0x3u);
@@ -83,9 +96,9 @@ std::string decode_move_comment(std::uint8_t byte) {
     out << "move dx=" << dx << ", dy=" << dy << ", color=";
     if (color == 0) {
         out << "none (move only!)";
-    } else if (color == 2) {
-        out << "fore (set)";
     } else if (color == 1) {
+        out << "fore (set)";
+    } else if (color == 2) {
         out << "back (clear)";
     } else {
         out << "xor (toggle)";
@@ -93,6 +106,7 @@ std::string decode_move_comment(std::uint8_t byte) {
     return out.str();
 }
 
+/// \brief glyph_label_for_comment.
 std::string glyph_label_for_comment(int codepoint) {
     if (codepoint == 127) return "<non standard>";
     if (codepoint == 39) return "'''";
@@ -102,6 +116,7 @@ std::string glyph_label_for_comment(int codepoint) {
     return "'?'";
 }
 
+/// \brief export_partner_asm_impl.
 export_state export_partner_asm_impl(
     const snatch_font* font,
     std::string_view output_path,
@@ -262,6 +277,7 @@ export_state export_partner_asm_impl(
     return {};
 }
 
+/// \brief export_partner_asm.
 int export_partner_asm(
     const snatch_font* font,
     const char* output_path,

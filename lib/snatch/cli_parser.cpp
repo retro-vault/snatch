@@ -1,3 +1,11 @@
+/// \file
+/// \brief Implementation of CLI parsing and option normalization.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/cli_parser.h"
 #include <iostream>
 #include <string>
@@ -11,6 +19,7 @@ extern "C" {
 
 // ---- parse ---------------------------------------------------------------
 
+/// \brief cli_parser::parse.
 int cli_parser::parse(int argc, const char** argv, snatch_options& out) const {
     std::vector<std::string> normalized_storage;
     std::vector<const char*> normalized_argv;

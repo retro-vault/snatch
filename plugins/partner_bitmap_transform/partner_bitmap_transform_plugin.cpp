@@ -1,3 +1,11 @@
+/// \file
+/// \brief Partner bitmap transformer plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch_plugins/partner_bitmap_transform.h"
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
@@ -21,12 +29,14 @@ struct partner_bitmap_owner {
 
 partner_bitmap_owner g_owner;
 
+/// \brief bit_is_set.
 bool bit_is_set(const unsigned char* row, int x) {
     const int byte_index = x / 8;
     const int bit_index = 7 - (x % 8);
     return (row[byte_index] & (1u << bit_index)) != 0;
 }
 
+/// \brief find_glyph_by_codepoint.
 const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf, int codepoint) {
     for (int i = 0; i < bf.glyph_count; ++i) {
         if (bf.glyphs[i].codepoint == codepoint) return &bf.glyphs[i];
@@ -34,11 +44,13 @@ const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf,
     return nullptr;
 }
 
+/// \brief append_u16_le.
 void append_u16_le(std::vector<std::uint8_t>& out, std::uint16_t value) {
     out.push_back(static_cast<std::uint8_t>(value & 0xFFu));
     out.push_back(static_cast<std::uint8_t>((value >> 8u) & 0xFFu));
 }
 
+/// \brief pack_glyph_rows.
 glyph_blob pack_glyph_rows(
     const snatch_glyph_bitmap* glyph,
     int cell_width,
@@ -79,6 +91,7 @@ glyph_blob pack_glyph_rows(
     return out;
 }
 
+/// \brief partner_bitmap_transform.
 int partner_bitmap_transform(
     snatch_font* font,
     const snatch_kv* options,

@@ -1,3 +1,11 @@
+/// \file
+/// \brief Partner bitmap SDCC assembly exporter plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
 
@@ -33,12 +41,14 @@ struct export_state {
     [[nodiscard]] bool ok() const { return code == 0; }
 };
 
+/// \brief bit_is_set.
 bool bit_is_set(const unsigned char* row, int x) {
     const int byte_index = x / 8;
     const int bit_index = 7 - (x % 8);
     return (row[byte_index] & (1u << bit_index)) != 0;
 }
 
+/// \brief find_glyph_by_codepoint.
 const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf, int codepoint) {
     for (int i = 0; i < bf.glyph_count; ++i) {
         if (bf.glyphs[i].codepoint == codepoint) return &bf.glyphs[i];
@@ -46,6 +56,7 @@ const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf,
     return nullptr;
 }
 
+/// \brief sanitize_symbol.
 std::string sanitize_symbol(std::string value) {
     if (value.empty()) return "snatch_font";
     for (char& ch : value) {
@@ -57,6 +68,7 @@ std::string sanitize_symbol(std::string value) {
     return value;
 }
 
+/// \brief default_symbol_from_output.
 std::string default_symbol_from_output(std::string_view output_path) {
     std::filesystem::path p{std::string(output_path)};
     std::string stem = p.stem().string();
@@ -64,6 +76,7 @@ std::string default_symbol_from_output(std::string_view output_path) {
     return sanitize_symbol(std::move(stem));
 }
 
+/// \brief glyph_label_for_comment.
 std::string glyph_label_for_comment(int codepoint) {
     if (codepoint == 127) return "<non standard>";
     if (codepoint == 39) return "'''";
@@ -71,6 +84,7 @@ std::string glyph_label_for_comment(int codepoint) {
     return "'?'";
 }
 
+/// \brief to_bin8.
 std::string to_bin8(std::uint8_t byte) {
     std::string out(8, '0');
     for (int i = 0; i < 8; ++i) {
@@ -79,10 +93,12 @@ std::string to_bin8(std::uint8_t byte) {
     return out;
 }
 
+/// \brief write_db_value.
 void write_db_value(std::ostream& os, std::uint8_t value, std::string_view comment) {
     os << kIndent << ".db " << std::left << std::setw(20) << static_cast<unsigned>(value) << "; " << comment << '\n';
 }
 
+/// \brief write_dw_line.
 void write_dw_line(std::ostream& os, const std::vector<std::uint16_t>& values, std::size_t off, std::size_t n) {
     os << kIndent << ".dw ";
     for (std::size_t i = 0; i < n; ++i) {
@@ -97,6 +113,7 @@ void write_dw_line(std::ostream& os, const std::vector<std::uint16_t>& values, s
     os << '\n';
 }
 
+/// \brief pack_glyph_rows.
 glyph_blob pack_glyph_rows(
     const snatch_glyph_bitmap* glyph,
     int codepoint,
@@ -140,6 +157,7 @@ glyph_blob pack_glyph_rows(
     return out;
 }
 
+/// \brief export_partner_bitmap_asm_impl.
 export_state export_partner_bitmap_asm_impl(
     const snatch_font* font,
     std::string_view output_path,
@@ -302,6 +320,7 @@ export_state export_partner_bitmap_asm_impl(
     return {};
 }
 
+/// \brief export_partner_bitmap_asm.
 int export_partner_bitmap_asm(
     const snatch_font* font,
     const char* output_path,

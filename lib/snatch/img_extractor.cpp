@@ -1,3 +1,11 @@
+/// \file
+/// \brief Implementation of bitmap glyph extraction from raster images.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/img_extractor.h"
 #include "snatch/glyph_algorithms.h"
 
@@ -21,16 +29,19 @@ struct rgba {
     int a{255};
 };
 
+/// \brief stride_for_bits.
 inline int stride_for_bits(int width) {
     return (width + 7) / 8;
 }
 
+/// \brief set_bit.
 inline void set_bit(unsigned char* row, int x) {
     const int byte_index = x / 8;
     const int bit_index = 7 - (x % 8);
     row[byte_index] |= static_cast<unsigned char>(1u << bit_index);
 }
 
+/// \brief color_distance_sq.
 double color_distance_sq(const rgba& c, const color_rgb& ref) {
     const int dr = c.r - ref.r;
     const int dg = c.g - ref.g;
@@ -38,10 +49,12 @@ double color_distance_sq(const rgba& c, const color_rgb& ref) {
     return static_cast<double>(dr * dr + dg * dg + db * db);
 }
 
+/// \brief is_near_color.
 bool is_near_color(const rgba& c, const color_rgb& ref, int threshold) {
     return color_distance_sq(c, ref) <= static_cast<double>(threshold * threshold);
 }
 
+/// \brief pixel_is_foreground.
 bool pixel_is_foreground(const rgba& px, const image_extract_options& opt) {
     if (px.a == 0) return false;
     if (opt.has_transparent && is_near_color(px, opt.transparent_color, k_color_threshold)) return false;
@@ -55,6 +68,7 @@ bool pixel_is_foreground(const rgba& px, const image_extract_options& opt) {
 
 } // namespace
 
+/// \brief img_extractor::extract.
 bool img_extractor::extract(const image_extract_options& opt, extracted_font& out, std::string& err) const {
     int img_w = 0;
     int img_h = 0;

@@ -1,3 +1,11 @@
+/// \file
+/// \brief TTF extractor plugin adapter for core extraction.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
 
@@ -16,6 +24,7 @@ struct ttf_extract_owner {
 
 static ttf_extract_owner g_owner;
 
+/// \brief parse_int_kv.
 std::optional<int> parse_int_kv(const plugin_kv_view& kv, std::string_view key) {
     if (const auto raw = kv.get(key); raw && !raw->empty()) {
         return plugin_parse_int(*raw);
@@ -23,6 +32,7 @@ std::optional<int> parse_int_kv(const plugin_kv_view& kv, std::string_view key) 
     return std::nullopt;
 }
 
+/// \brief parse_proportional.
 bool parse_proportional(const plugin_kv_view& kv, bool fallback, char* errbuf, unsigned errbuf_len) {
     if (const auto mode = kv.get("font_mode"); mode && !mode->empty()) {
         if (*mode == "fixed") return false;
@@ -33,6 +43,7 @@ bool parse_proportional(const plugin_kv_view& kv, bool fallback, char* errbuf, u
     return plugin_parse_bool(kv.get("proportional"), fallback);
 }
 
+/// \brief extract_ttf.
 int extract_ttf(
     const char* input_path,
     const snatch_kv* options,

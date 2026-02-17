@@ -1,3 +1,11 @@
+/// \file
+/// \brief TTF extraction interface and option definitions.
+///
+/// This header declares types and contracts used by snatch core and plugin stages. It is part of the extractor-transformer-exporter architecture and is consumed by build-time and runtime plugin integration.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #pragma once
 
 #include <filesystem>

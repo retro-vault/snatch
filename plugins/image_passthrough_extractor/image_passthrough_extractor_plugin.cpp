@@ -1,3 +1,11 @@
+/// \file
+/// \brief Full-image passthrough extractor plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
 #include "snatch_plugins/image_passthrough_data.h"
@@ -20,6 +28,7 @@ struct image_passthrough_owner {
 
 static image_passthrough_owner g_owner;
 
+/// \brief extract_image_passthrough.
 int extract_image_passthrough(
     const char* input_path,
     const snatch_kv* /*options*/,

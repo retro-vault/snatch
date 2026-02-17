@@ -1,3 +1,11 @@
+/// \file
+/// \brief Unit tests for image glyph extraction.
+///
+/// This test source validates behavior of core parsing, extraction, transformation, and export flows. It helps ensure regressions are caught early for the plugin-driven pipeline.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include <gtest/gtest.h>
 
 #include "snatch/img_extractor.h"

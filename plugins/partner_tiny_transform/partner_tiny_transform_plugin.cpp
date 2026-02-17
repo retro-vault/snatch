@@ -1,3 +1,11 @@
+/// \file
+/// \brief Partner Tiny vectorization transformer plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/glyph_algorithms.h"
 #include "snatch_plugins/partner_tiny_transform.h"
 #include "snatch/plugin.h"
@@ -10,7 +18,7 @@
 namespace {
 
 constexpr std::uint8_t kColorNone = 0;
-constexpr std::uint8_t kColorFore = 2;
+constexpr std::uint8_t kColorFore = 1;
 
 struct tiny_move {
     int dx{0};
@@ -31,10 +39,12 @@ struct partner_tiny_owner {
 
 static partner_tiny_owner g_owner;
 
+/// \brief u8_clamp.
 constexpr std::uint8_t u8_clamp(int v) {
     return static_cast<std::uint8_t>(std::clamp(v, 0, 255));
 }
 
+/// \brief encode_tiny_move.
 std::uint8_t encode_tiny_move(const tiny_move& move) {
     const int dx = std::clamp(move.dx, -3, 3);
     const int dy = std::clamp(move.dy, -3, 3);
@@ -43,19 +53,22 @@ std::uint8_t encode_tiny_move(const tiny_move& move) {
 
     const std::uint8_t sx = static_cast<std::uint8_t>(dx < 0 ? 1 : 0);
     const std::uint8_t sy = static_cast<std::uint8_t>(dy < 0 ? 1 : 0);
-    const std::uint8_t co0 = static_cast<std::uint8_t>(move.color & 1u);
-    const std::uint8_t co1 = static_cast<std::uint8_t>((move.color >> 1u) & 1u);
+    // Partner tiny bit layout is: c0 dx dx dy dy sy sx c1
+    // so color bit0 goes to bit7 (c0), color bit1 goes to bit0 (c1).
+    const std::uint8_t c0 = static_cast<std::uint8_t>(move.color & 1u);
+    const std::uint8_t c1 = static_cast<std::uint8_t>((move.color >> 1u) & 1u);
 
     std::uint8_t out = 0;
-    out |= static_cast<std::uint8_t>(co1 << 7u);
+    out |= static_cast<std::uint8_t>(c0 << 7u);
     out |= static_cast<std::uint8_t>(adx << 5u);
     out |= static_cast<std::uint8_t>(ady << 3u);
     out |= static_cast<std::uint8_t>(sy << 2u);
     out |= static_cast<std::uint8_t>(sx << 1u);
-    out |= co0;
+    out |= c1;
     return out;
 }
 
+/// \brief append_none_steps.
 void append_none_steps(std::vector<tiny_move>& out, int dx, int dy) {
     int rem_x = dx;
     int rem_y = dy;
@@ -69,7 +82,13 @@ void append_none_steps(std::vector<tiny_move>& out, int dx, int dy) {
     }
 }
 
-std::vector<tiny_move> vectorize_glyph(const snatch_glyph_bitmap& glyph, bool optimize_route) {
+/// \brief vectorize_glyph.
+std::vector<tiny_move> vectorize_glyph(
+    const snatch_glyph_bitmap& glyph,
+    bool optimize_route,
+    int& origin_x,
+    int& origin_y
+) {
     std::vector<tiny_move> moves;
     std::vector<glyph_pixel> points = glyph_bitmap_analyzer::foreground_pixels(glyph, 1);
     if (points.empty()) return moves;
@@ -79,8 +98,10 @@ std::vector<tiny_move> vectorize_glyph(const snatch_glyph_bitmap& glyph, bool op
         points = optimizer.tsp_2opt(points);
     }
 
-    int cx = points.front().x;
-    int cy = points.front().y;
+    origin_x = points.front().x;
+    origin_y = points.front().y;
+    int cx = origin_x;
+    int cy = origin_y;
     moves.push_back({0, 0, kColorFore}); // initial dot at origin
 
     for (std::size_t i = 1; i < points.size(); ++i) {
@@ -88,13 +109,9 @@ std::vector<tiny_move> vectorize_glyph(const snatch_glyph_bitmap& glyph, bool op
         const int ty = points[i].y;
         const int dx = tx - cx;
         const int dy = ty - cy;
-
-        if (std::abs(dx) <= 1 && std::abs(dy) <= 1) {
-            moves.push_back({dx, dy, kColorFore});
-        } else {
-            append_none_steps(moves, dx, dy);
-            moves.push_back({0, 0, kColorFore});
-        }
+        // Keep reconstruction faithful: travel with color=none, then set exactly one pixel.
+        append_none_steps(moves, dx, dy);
+        moves.push_back({0, 0, kColorFore});
         cx = tx;
         cy = ty;
     }
@@ -102,6 +119,7 @@ std::vector<tiny_move> vectorize_glyph(const snatch_glyph_bitmap& glyph, bool op
     return moves;
 }
 
+/// \brief find_glyph_by_codepoint.
 const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf, int codepoint) {
     for (int i = 0; i < bf.glyph_count; ++i) {
         const auto& glyph = bf.glyphs[i];
@@ -110,6 +128,7 @@ const snatch_glyph_bitmap* find_glyph_by_codepoint(const snatch_bitmap_font& bf,
     return nullptr;
 }
 
+/// \brief partner_tiny_transform.
 int partner_tiny_transform(
     snatch_font* font,
     const snatch_kv* options,
@@ -155,21 +174,26 @@ int partner_tiny_transform(
         owner.view.height_minus_one = u8_clamp(gh - 1);
 
         if (glyph && glyph->data && glyph->width > 0 && glyph->height > 0) {
-            const std::vector<glyph_pixel> pixels = glyph_bitmap_analyzer::foreground_pixels(*glyph, 1);
-            if (!pixels.empty()) {
-                const std::vector<tiny_move> tiny = vectorize_glyph(*glyph, optimize_route);
+            int origin_x = 0;
+            int origin_y = 0;
+            const std::vector<tiny_move> tiny = vectorize_glyph(*glyph, optimize_route, origin_x, origin_y);
+            if (!tiny.empty()) {
+                if (tiny.size() > 255) {
+                    plugin_set_err(errbuf, errbuf_len, "partner_tiny_transform: glyph has more than 255 moves");
+                    return 32;
+                }
                 if (tiny.size() + 2 > 65535) {
                     plugin_set_err(errbuf, errbuf_len, "partner_tiny_transform: glyph payload too large");
-                    return 32;
+                    return 33;
                 }
 
                 owner.bytes.reserve(tiny.size() + 2);
-                owner.bytes.push_back(u8_clamp(pixels.front().x));
-                owner.bytes.push_back(u8_clamp(pixels.front().y));
+                owner.bytes.push_back(u8_clamp(origin_x));
+                owner.bytes.push_back(u8_clamp(origin_y));
                 for (const auto& move : tiny) {
                     owner.bytes.push_back(encode_tiny_move(move));
                 }
-            }
+            } 
         }
 
         owner.view.data_size = static_cast<std::uint16_t>(owner.bytes.size());
@@ -204,6 +228,7 @@ const snatch_plugin_info k_info = {
     SNATCH_PLUGIN_ABI_VERSION,
     SNATCH_PLUGIN_KIND_TRANSFORMER,
     &partner_tiny_transform,
+    nullptr,
     nullptr
 };
 

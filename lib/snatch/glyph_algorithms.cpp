@@ -1,3 +1,11 @@
+/// \file
+/// \brief Implementation of glyph analysis and route optimization utilities.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/glyph_algorithms.h"
 
 #include <algorithm>
@@ -5,6 +13,7 @@
 
 namespace {
 
+/// \brief bit_is_set.
 inline bool bit_is_set(const unsigned char* row, int x) {
     const int byte_index = x / 8;
     const int bit_index = 7 - (x % 8);
@@ -13,14 +22,17 @@ inline bool bit_is_set(const unsigned char* row, int x) {
 
 } // namespace
 
+/// \brief glyph_bitmap_analyzer::rightmost_set_bit.
 int glyph_bitmap_analyzer::rightmost_set_bit(const snatch_glyph_bitmap& glyph) {
     return bounds(glyph).right;
 }
 
+/// \brief glyph_bitmap_analyzer::leftmost_set_bit.
 int glyph_bitmap_analyzer::leftmost_set_bit(const snatch_glyph_bitmap& glyph) {
     return bounds(glyph).left;
 }
 
+/// \brief glyph_bitmap_analyzer::bounds.
 glyph_bounds glyph_bitmap_analyzer::bounds(const snatch_glyph_bitmap& glyph) {
     glyph_bounds out;
     if (!glyph.data || glyph.width <= 0 || glyph.height <= 0 || glyph.stride_bytes <= 0) return out;
@@ -48,6 +60,7 @@ glyph_bounds glyph_bitmap_analyzer::bounds(const snatch_glyph_bitmap& glyph) {
     return out;
 }
 
+/// \brief glyph_bitmap_analyzer::foreground_pixels.
 std::vector<glyph_pixel> glyph_bitmap_analyzer::foreground_pixels(const snatch_glyph_bitmap& glyph, std::uint8_t color) {
     std::vector<glyph_pixel> out;
     if (!glyph.data || glyph.width <= 0 || glyph.height <= 0 || glyph.stride_bytes <= 0) return out;
@@ -72,10 +85,12 @@ glyph_route_cost_model::glyph_route_cost_model(
     color_change_cost_(std::max(0, color_change_cost)),
     max_free_line_run_(std::max(1, max_free_line_run)) {}
 
+/// \brief glyph_route_cost_model::same_color.
 bool glyph_route_cost_model::same_color(const glyph_pixel& a, const glyph_pixel& b) const {
     return std::abs(static_cast<int>(a.color) - static_cast<int>(b.color)) <= color_threshold_;
 }
 
+/// \brief glyph_route_cost_model::transition_cost.
 int glyph_route_cost_model::transition_cost(const glyph_pixel& a, const glyph_pixel& b, int& dx, int& dy) const {
     dx = a.x - b.x;
     dy = a.y - b.y;
@@ -88,6 +103,7 @@ int glyph_route_cost_model::transition_cost(const glyph_pixel& a, const glyph_pi
     return dist;
 }
 
+/// \brief glyph_route_cost_model::total_cost.
 int glyph_route_cost_model::total_cost(const std::vector<glyph_pixel>& route) const {
     if (route.size() < 2) return 0;
     int sum = 0;
@@ -113,6 +129,7 @@ int glyph_route_cost_model::total_cost(const std::vector<glyph_pixel>& route) co
 
 glyph_route_optimizer::glyph_route_optimizer(glyph_route_cost_model model) : cost_model_(std::move(model)) {}
 
+/// \brief glyph_route_optimizer::two_opt_swap.
 std::vector<glyph_pixel> glyph_route_optimizer::two_opt_swap(const std::vector<glyph_pixel>& route, int i, int k) {
     std::vector<glyph_pixel> result;
     result.reserve(route.size());
@@ -123,6 +140,7 @@ std::vector<glyph_pixel> glyph_route_optimizer::two_opt_swap(const std::vector<g
     return result;
 }
 
+/// \brief glyph_route_optimizer::tsp_2opt.
 std::vector<glyph_pixel> glyph_route_optimizer::tsp_2opt(const std::vector<glyph_pixel>& route) const {
     if (route.size() < 3) return route;
 

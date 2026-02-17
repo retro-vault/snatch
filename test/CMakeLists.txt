@@ -6,6 +6,9 @@ file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
 
 # 2) the test target
 add_executable(snatch_tests ${TEST_SOURCES})
+set_target_properties(snatch_tests PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+)
 target_link_libraries(snatch_tests PRIVATE libsnatch GTest::gtest_main pthread)
 target_include_directories(snatch_tests
   PRIVATE

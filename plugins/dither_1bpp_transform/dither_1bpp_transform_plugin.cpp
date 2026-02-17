@@ -1,3 +1,11 @@
+/// \file
+/// \brief 1bpp dithering transformer plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
 #include "snatch_plugins/image_passthrough_data.h"
@@ -16,6 +24,7 @@ struct dither_owner {
 
 static dither_owner g_owner;
 
+/// \brief parse_threshold.
 int parse_threshold(const plugin_kv_view& kv, char* errbuf, unsigned errbuf_len) {
     if (const auto raw = kv.get("threshold"); raw && !raw->empty()) {
         const auto parsed = plugin_parse_int(*raw);
@@ -28,11 +37,13 @@ int parse_threshold(const plugin_kv_view& kv, char* errbuf, unsigned errbuf_len)
     return 128;
 }
 
+/// \brief add_error.
 void add_error(std::vector<float>& buf, int w, int h, int x, int y, float value) {
     if (x < 0 || x >= w || y < 0 || y >= h) return;
     buf[static_cast<std::size_t>(y * w + x)] += value;
 }
 
+/// \brief dither_1bpp_transform.
 int dither_1bpp_transform(
     snatch_font* font,
     const snatch_kv* options,

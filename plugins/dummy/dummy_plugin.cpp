@@ -1,3 +1,11 @@
+/// \file
+/// \brief Minimal dummy exporter plugin for diagnostics.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
 
@@ -7,6 +15,7 @@
 
 namespace {
 
+/// \brief dummy_export_font.
 int dummy_export_font(
     const snatch_font* font,
     const char* output_path,

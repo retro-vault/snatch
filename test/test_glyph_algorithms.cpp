@@ -1,9 +1,18 @@
+/// \file
+/// \brief Unit tests for glyph analysis and routing algorithms.
+///
+/// This test source validates behavior of core parsing, extraction, transformation, and export flows. It helps ensure regressions are caught early for the plugin-driven pipeline.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include <gtest/gtest.h>
 
 #include "snatch/glyph_algorithms.h"
 
 namespace {
 
+/// \brief set_bit.
 void set_bit(std::vector<unsigned char>& data, int stride, int x, int y) {
     const size_t row = static_cast<size_t>(y * stride);
     const int byte_index = x / 8;

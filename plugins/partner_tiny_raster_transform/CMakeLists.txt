@@ -1,0 +1,2 @@
+add_snatch_plugin(partner_tiny_raster_transform partner_tiny_raster_transform_plugin.cpp)
+

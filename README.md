@@ -30,6 +30,7 @@ Pipeline examples:
 ```text
 TTF -> ttf_extractor -> partner_tiny_transform -> partner_sdcc_asm_tiny -> .s
 image -> image_extractor -> (no transform) -> raw_bin -> .bin
+TTF -> ttf_extractor -> partner_tiny_transform -> raw_bin -> partner_tiny_bin_extractor -> partner_tiny_raster_transform -> png
 ```
 
 This is why the new model is more flexible: with appropriate plugins, you can run non-font flows too (for example: extract one glyph/region from color image -> dither transform -> 1bpp image export).
@@ -113,12 +114,14 @@ ctest --test-dir build --output-on-failure
 | `ttf_extractor` | `ttf` | Rasterize TTF glyphs into 1bpp bitmap glyphs |
 | `image_extractor` | `image` | Extract glyph bitmaps from grid image sheets |
 | `image_passthrough_extractor` | `image` | Load full image as grayscale passthrough payload in `user_data` |
+| `partner_tiny_bin_extractor` | `bin` | Load Partner Tiny binary stream into `user_data` for raster decoding |
 
 ### Transformers
 
 | Name | Purpose | Notes |
 |:--|:--|:--|
 | `partner_tiny_transform` | Vectorize bitmap glyphs into Partner Tiny move streams | Intended for `partner_sdcc_asm_tiny` |
+| `partner_tiny_raster_transform` | Interpret Partner Tiny moves and rebuild bitmap glyphs | Intended for `partner_tiny_bin_extractor` + `png` |
 | `partner_bitmap_transform` | Serialize bitmap font to Partner bitmap byte stream | Intended for `partner_sdcc_asm_bitmap`, `raw_bin`, `raw_c` |
 | `fzx-transform` | Compute ZX Spectrum FZX-style glyph metadata | Stores metadata in `font->user_data` |
 | `dither_1bpp_transform` | Dither grayscale passthrough image to 1bpp bitmap glyph | Intended for `image_passthrough_extractor` + `png` |
@@ -130,7 +133,7 @@ ctest --test-dir build --output-on-failure
 | `png` | `png` | `snatch-grid` | Render bitmap font as PNG grid |
 | `partner_sdcc_asm_tiny` | `asm` | `partner-sdcc-asm-tiny` | SDCC assembly export for Partner tiny format |
 | `partner_sdcc_asm_bitmap` | `asm` | `partner-sdcc-asm-bitmap` | SDCC assembly export for Partner bitmap format |
-| `raw_bin` | `bin` | `raw-1bpp` | Raw continuous byte stream |
+| `raw_bin` | `bin` | `raw-1bpp` | Raw continuous byte stream (or Partner Tiny stream when input is `partner_tiny_transform`) |
 | `raw_c` | `c` | `raw-1bpp` | Raw byte stream as `const uint8_t[]` |
 | `dummy` | `txt` | `debug-dump` | Diagnostic exporter |
 
@@ -178,6 +181,27 @@ Concept example (full image passthrough -> dither -> PNG):
   --transformer-parameters "threshold=128" \
   --exporter png \
   --exporter-parameters "output=out/tut_dither_1bpp.png,columns=1,rows=1,padding=0,grid_thickness=0"
+```
+
+Partner Tiny roundtrip (binary -> rasterized grid):
+
+```bash
+# 1) Create Partner Tiny binary stream.
+./bin/snatch \
+  --plugin-dir ./bin/plugins \
+  --extractor-parameters "input=fonts/Retro.ttf,first_ascii=65,last_ascii=70,font_size=16" \
+  --transformer partner_tiny_transform \
+  --exporter raw_bin \
+  --exporter-parameters "output=out/retro_tiny.bin,font_mode=proportional,space_width=3,letter_spacing=1"
+
+# 2) Load tiny stream and rasterize it back to bitmap grid.
+./bin/snatch \
+  --plugin-dir ./bin/plugins \
+  --extractor partner_tiny_bin_extractor \
+  --extractor-parameters "input=out/retro_tiny.bin" \
+  --transformer partner_tiny_raster_transform \
+  --exporter png \
+  --exporter-parameters "output=out/retro_tiny_roundtrip.png,columns=3,rows=2,padding=1,grid_thickness=1"
 ```
 
 ## Plugin Discovery

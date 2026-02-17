@@ -1,3 +1,11 @@
+/// \file
+/// \brief PNG grid exporter plugin implementation.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/plugin.h"
 #include "snatch/plugin_util.h"
 
@@ -13,6 +21,7 @@ extern "C" {
 
 namespace {
 
+/// \brief parse_positive.
 int parse_positive(std::optional<std::string_view> raw) {
     if (!raw || raw->empty()) return 0;
     const auto value = plugin_parse_int(*raw);
@@ -20,12 +29,14 @@ int parse_positive(std::optional<std::string_view> raw) {
     return *value;
 }
 
+/// \brief bit_is_set.
 inline bool bit_is_set(const unsigned char* row, int x) {
     const int byte_index = x / 8;
     const int bit_index = 7 - (x % 8);
     return (row[byte_index] & (1u << bit_index)) != 0;
 }
 
+/// \brief set_rgb_pixel.
 inline void set_rgb_pixel(
     std::vector<unsigned char>& img,
     int image_w,
@@ -41,6 +52,7 @@ inline void set_rgb_pixel(
     img[i + 2] = color[2];
 }
 
+/// \brief draw_glyph.
 void draw_glyph(
     std::vector<unsigned char>& img,
     int image_w,
@@ -71,6 +83,7 @@ void draw_glyph(
 
 extern "C" int snatch_plugin_get(const snatch_plugin_info** out);
 
+/// \brief export_png_grid.
 static int export_png_grid(
     const snatch_font* font,
     const char* output_path,

@@ -1,3 +1,11 @@
+/// \file
+/// \brief FreeType-based rasterization of TTF glyphs to 1bpp bitmaps.
+///
+/// This source file implements one part of the snatch pipeline architecture. It contributes to extracting, transforming, exporting, or orchestrating bitmap data in a plugin-driven workflow.
+///
+/// Copyright (c) 2026 Tomaz Stih
+/// SPDX-License-Identifier: GPL-2.0-only
+
 #include "snatch/ttf_extractor.h"
 #include "snatch/glyph_algorithms.h"
 
@@ -9,6 +17,7 @@
 
 namespace {
 
+/// \brief rasterize_glyph.
 bool rasterize_glyph(FT_Face face, int codepoint, bool proportional, extracted_glyph& out, std::string& err) {
     const int flags = FT_LOAD_RENDER | FT_LOAD_MONOCHROME | FT_LOAD_TARGET_MONO;
     if (FT_Load_Char(face, static_cast<FT_ULong>(codepoint), flags) != 0) {
@@ -55,6 +64,7 @@ bool rasterize_glyph(FT_Face face, int codepoint, bool proportional, extracted_g
 
 } // namespace
 
+/// \brief ttf_extractor::choose_natural_size.
 int ttf_extractor::choose_natural_size(void* ft_face) {
     FT_Face face = static_cast<FT_Face>(ft_face);
     if (face->num_fixed_sizes > 0 && face->available_sizes) {
@@ -104,6 +114,7 @@ int ttf_extractor::choose_natural_size(void* ft_face) {
     return best_size;
 }
 
+/// \brief ttf_extractor::extract.
 bool ttf_extractor::extract(const ttf_extract_options& opt, extracted_font& out, std::string& err) const {
     FT_Library library = nullptr;
     if (FT_Init_FreeType(&library) != 0) {
