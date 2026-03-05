@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GCC toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13 cmake ninja-build
+
+      - name: Configure
+        run: |
+          set -euo pipefail
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=gcc-13 \
+            -DCMAKE_CXX_COMPILER=g++-13 \
+            -DBUILD_TESTING=OFF
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCH_RAW="$(uname -m)"
+          case "${ARCH_RAW}" in
+            x86_64|amd64) ARCH="x86_64" ;;
+            aarch64|arm64) ARCH="arm64" ;;
+            *) ARCH="${ARCH_RAW}" ;;
+          esac
+
+          PLATFORM="linux-${ARCH}"
+          STAGE_NAME="snatch-${VERSION}-${PLATFORM}"
+          STAGE_DIR="release/${STAGE_NAME}"
+          ARCHIVE_NAME="snatch-${PLATFORM}-${VERSION}.tar.gz"
+
+          rm -rf release
+          mkdir -p "${STAGE_DIR}/plugins"
+
+          cp "bin/snatch" "${STAGE_DIR}/"
+          cp bin/plugins/*.so "${STAGE_DIR}/plugins/"
+          cp -R "include" "${STAGE_DIR}/include"
+          cp LICENSE "${STAGE_DIR}/LICENSE"
+
+          {
+            echo "snatch ${VERSION}"
+            echo
+            echo "Release package for snatch (${PLATFORM})."
+            echo
+            echo "Contents:"
+            echo "- snatch"
+            echo "- plugins/*.so"
+            echo "- include/snatch/*.h"
+            echo "- LICENSE"
+          } > "${STAGE_DIR}/README-release.txt"
+
+          tar -C release -czf "release/${ARCHIVE_NAME}" "${STAGE_NAME}"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: release/*.tar.gz
+
+  publish-release:
+    needs: build-package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+
+      - name: Compute version
+        id: meta
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "${GITHUB_OUTPUT}"
+
+      - name: Generate release notes
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          RELEASE_DATE="$(date -u '+%b %-d, %Y')"
+          BODY_FILE="release/release-notes.txt"
+          CHANGES_FILE="release/changes.txt"
+
+          PREV_TAG="$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -n 1 || true)"
+          if [ -n "${PREV_TAG}" ]; then
+            git log --no-merges --pretty='- %s' "${PREV_TAG}..${TAG}" > "${CHANGES_FILE}" || true
+          else
+            git log --no-merges --pretty='- %s' "${TAG}" > "${CHANGES_FILE}" || true
+          fi
+          if [ ! -s "${CHANGES_FILE}" ]; then
+            printf '%s\n' "- Maintenance release" > "${CHANGES_FILE}"
+          fi
+
+          {
+            echo "v${VERSION}"
+            echo "Released ${RELEASE_DATE}"
+            echo
+            echo "What's changed"
+            cat "${CHANGES_FILE}"
+            echo
+            echo "Assets"
+            ls -1 release/*.tar.gz 2>/dev/null | sed 's#^release/#- #' || true
+          } > "${BODY_FILE}"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.meta.outputs.version }}
+          body_path: release/release-notes.txt
+          files: release/*.tar.gz
